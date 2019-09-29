@@ -15,7 +15,25 @@ module.exports = class HashPath {
 }
 
 function hash (data) {
-  const out = Buffer.allocUnsafe(8)
-  sodium.crypto_shorthash(out, data, KEY)
+  const parts = split(data)
+  const out = Buffer.allocUnsafe(8 * parts.length)
+  for (let i = 0; i < parts.length; i++) {
+    sodium.crypto_shorthash(out.slice(i * 8), parts[i], KEY)
+  }
   return out
+}
+
+function split (data) {
+  const ch = Buffer.from('/')[0]
+  const parts = []
+
+  while (true) {
+    const i = data.indexOf(ch)
+    if (i === -1) {
+      parts.push(data)
+      return parts
+    }
+    parts.push(data.slice(0, i))
+    data = data.slice(i + 1)
+  }
 }

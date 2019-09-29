@@ -49,13 +49,13 @@ class Controller {
       const val = this.target.hash.get(this.i)
       if (val === this.head.hash.get(this.i)) continue
 
-      if (this.i >= this.head.trie.length) return null
+      if (this.i >= this.head.trie.length) break
 
       const link = this.head.trie[this.i]
-      if (!link) return null
+      if (!link) break
 
       const seq = link[val]
-      if (!seq) return null
+      if (!seq) break
 
       this.head = this.getSeq(seq)
 

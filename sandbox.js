@@ -1,9 +1,14 @@
 const MockTrie = require('./')
 
+const m = new MockTrie()
+
+m.put('a', JSON.stringify({ actual: 'a', actualTrie: 'm' }))
+
 const t = new MockTrie()
 
 t.put('a', JSON.stringify({ actual: 'a' }))
 t.put('b', JSON.stringify({ actual: 'b', symlink: 'a' }))
+t.put('b1', JSON.stringify({ actual: 'b1', mount: 'm' }))
 t.put('c', '{"actual": "c"}')
 t.put('d', JSON.stringify({ actual: 'd', symlink: 'b' }))
 t.put('e', '{"actual":"e"}')
@@ -12,6 +17,14 @@ function get (key) {
   const c = new MockTrie.Controller({
     onclosest (node) {
       const val = JSON.parse(node.value)
+
+      if (val.mount) { // and validate prefix
+        const key = (c.target.key.toString().replace(node.key.toString(), '') || '/').replace('/', '')
+        c.reset()
+        c.setFeed(m.feed)
+        c.setTarget(key)
+        return null
+      }
 
       if (val.symlink && node.key.equals(c.target.key)) {
         c.reset()
@@ -34,7 +47,7 @@ function get (key) {
   return c.update()
 }
 
-console.log(get('d'))
+console.log(get('b1/a'))
 
 // for (let i = 0; i < 1000; i++) {
 //   t.put('a' + i, 'val')
