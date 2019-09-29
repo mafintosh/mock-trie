@@ -3,6 +3,98 @@ const HashPath = require('./hash')
 const TrieBuilder = require('./trie-builder')
 const util = require('util')
 
+class Controller {
+  constructor (handlers) {
+    this.handlers = handlers
+    this.feed = null
+    this.target = null
+    this.i = 0
+    this.head = null
+    this._reset = false
+  }
+
+  reset () {
+    this.feed = null
+    this.target = null
+    this.i = 0
+    this.head = null
+    this._reset = true
+  }
+
+  setFeed (feed) {
+    this.feed = feed
+    this.head = null
+    this.i = 0
+  }
+
+  setTarget (key) {
+    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
+    this.target = new Node(key, null, null)
+  }
+
+  update () {
+    for (; this.i < this.target.hash.length; this.i++) {
+      if (!this.head) {
+        this.head = this.getSeq(this.feed.length - 1)
+
+        if (this._reset) {
+          this._reset = false
+          this.i--
+          continue
+        }
+      }
+
+      if (!this.head) break
+
+      const val = this.target.hash.get(this.i)
+      if (val === this.head.hash.get(this.i)) continue
+
+      if (this.i >= this.head.trie.length) return null
+
+      const link = this.head.trie[this.i]
+      if (!link) return null
+
+      const seq = link[val]
+      if (!seq) return null
+
+      this.head = this.getSeq(seq)
+
+      if (this._reset) {
+        this._reset = false
+        this.i--
+        continue
+      }
+    }
+
+    if (this.handlers.onclosest) {
+      this.head = this.handlers.onclosest(this.head)
+      if (this._reset) {
+        this._reset = false
+        return this.update()
+      }
+    }
+
+    if (this.head && this.head.key.equals(this.target.key)) {
+      if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
+      return this.head
+    }
+
+    return null
+  }
+
+  getSeq (seq) {
+    if (seq <= 0) return null
+    const val = this.feed.get(seq)
+    if (!val) return null
+    const node = new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    if (this.handlers.onnode) {
+      return this.handlers.onnode(node)
+    }
+    return node
+  }
+}
+
+
 class Node {
   constructor (key, value, trie, seq) {
     this.seq = seq
@@ -135,8 +227,9 @@ module.exports = class MockTrie {
            nodes +
            indent + ')'
   }
-
 }
+
+module.exports.Controller = Controller
 
 function printNode (node, indent, mockTrie) {
   let h = ''
@@ -166,7 +259,7 @@ function printNode (node, indent, mockTrie) {
     + indent + '  seq: ' + node.seq + '\n'
     + indent + '  hash: ' + h + '\n'
     + indent + '  key: ' + node.key.toString() + '\n'
-    + indent + '  value: ' + node.value.toString() + '\n'
+    + indent + '  value: ' + (node.value && node.value.toString()) + '\n'
     + indent + '  trie:\n'
     + trie
     + indent + '}'
