@@ -85,3 +85,45 @@ controller.prereturn = function (node, cb) {
 
 }
 */
+
+/*
+const c = new GetController(head, {
+  onclosest (node) {
+
+  },
+  onseq (seq, cb) {
+    feed.get(seq, cb)
+  }
+})
+
+c.execute(function (err, node) {
+
+})
+
+const c = new PutController(head, {
+  onclosest (node) {
+
+  },
+  onseq (seq, cb) {
+    feed.get(seq, cb)
+  }
+})
+
+const c = new IterateController(head, {
+  onclosest (node) {
+
+  },
+  onseq (seq, cb) {
+    feed.get(seq, cb)
+  }
+})
+
+const c = new DeleteController(head, {
+  onclosest (node) {
+
+  },
+  onseq (seq, cb) {
+    feed.get(seq, cb)
+  }
+})
+*/
