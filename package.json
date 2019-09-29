@@ -1,0 +1,24 @@
+{
+  "name": "mock-trie",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "sodium-native": "^2.4.6",
+    "varint": "^5.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mafintosh/mock-trie.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mafintosh/mock-trie/issues"
+  },
+  "homepage": "https://github.com/mafintosh/mock-trie#readme"
+}
