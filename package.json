@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "mock-feed": "0.0.0",
     "sodium-native": "^2.4.6",
     "varint": "^5.0.0"
   },
