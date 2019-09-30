@@ -60,9 +60,7 @@ class ReferenceTrie {
   }
 
   put (path, value, opts) {
-    // console.log('**** BEFORE PUT, path:', path, 'value:', value, 'trie:', this.root)
     this.find(path, { put: value })
-    // console.log('==== AFTER PUT, this.root:', this.root)
   }
 
   symlink (targetPath, linknamePath) {
@@ -80,16 +78,17 @@ class ReferenceTrie {
   validate (other) {
     return this.map(async (path, node) => {
       const otherNode = await other.get(path)
-      if (!otherNode) return error(path, null, node.value, null)
+      if (!otherNode) return error(null, path, null, node.value)
       const otherValue = otherNode.value.value
       if (otherNode.key !== path || otherValue !== node.value) {
         return error(otherNode.key, path, otherValue, node.value)
       }
     })
 
-    function error (key, refKey, value, refValue) {
-      const errString = `Validation failed for: Reference: ${refKey} -> ${refValue}, Trie: ${key} -> ${value}`
-      throw new Error(errString)
+    function error (key, expectedKey, value, expectedValue) {
+      const error = new Error('Found a key/value mismatch.')
+      error.mismatch = { key, expectedKey, value, expectedValue }
+      throw error
     }
   }
 
@@ -115,6 +114,13 @@ class TrieFuzzer extends FuzzBuzz {
     this._maxComponentLength = opts.maxComponentLength || 10
     this._maxPathDepth = opts.maxPathDepth || 10
 
+    // TODO: Hack for simple code generation.
+    this._trace = [
+      'const Trie = require(\'../trie\')',
+      'const trie = new Trie()',
+      ''
+    ]
+
     this.add(2, this.putNormalValue)
     // this.add(1, this.createSymlink)
     // this.add(1, this.rename)
@@ -136,6 +142,7 @@ class TrieFuzzer extends FuzzBuzz {
     const key = path.join('/')
     this.debug('putting normal key/value:', key, '->', value)
     await this.trie.put(key, value)
+    this._trace.push(`await trie.put(\'${key}\', \'${value}\')`)
     this.reference.put(path, value)
   }
 
@@ -150,6 +157,7 @@ class TrieFuzzer extends FuzzBuzz {
 
     this.debug('creating symlink:', linkname, '->', target)
     await this.trie.symlink(target, linkname)
+    this._trace.push(`await trie.symlink(\'${target}\', \'${linkname}\')`)
     this.reference.symlink(targetPath, linknamePath)
   }
 
@@ -161,17 +169,30 @@ class TrieFuzzer extends FuzzBuzz {
 
     this.debug('renaming:', from, '->', to)
     await this.trie.rename(from, to)
+    this._trace.push(`await trie.rename(\'${from}\', \'${to}\')`)
     this.reference.rename(fromPath, toPath)
   }
 
   async _validate () {
     this.debug('validating against reference:\n', await this.reference.print())
-    return this.reference.validate(this.trie)
+    try {
+      await this.reference.validate(this.trie)
+    } catch (err) {
+      if (!err.mismatch) throw err
+      const { key, value, expectedKey, expectedValue } = err.mismatch
+      this._trace.push(...[
+        '',
+        `// Should return ${expectedKey} -> ${expectedValue}`,
+        `await this.trie.get(\'${key}\', \'${value}\')`
+      ])
+      const testCase = `async function run () {\n   ${ this._trace.join('\n   ')}\n }\n run()`
+      console.error('Failing Test:\n', testCase, '\n')
+    }
   }
 }
 
 function run () {
-  const numTests = 5000
+  const numTests = 50
 
   test(`${numTests} fuzz operations`, async t => {
     t.plan(1)
