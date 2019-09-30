@@ -62,7 +62,11 @@ module.exports = class Trie {
     return c.update()
   }
 
-  put (key, val) {
+  put (key, value) {
+    this._put(key, { value })
+  }
+
+  _put (key, val) {
     const maxI = val.deletion ? key.split('/').length * 32 : Infinity
     let prev = Infinity
 
@@ -102,6 +106,19 @@ module.exports = class Trie {
     c.setValue(JSON.stringify(val))
 
     return c.update()
+  }
+
+  symlink (target, linkname) {
+    this._put(linkname, { value: linkname, symlink: target })
+  }
+
+  rename (from, to) {
+    this._put(to, { value: to, rename: from })
+    this._put(from, { value: from, deletion: true })
+  }
+
+  mount (path, key, opts) {
+    this._put(path, { value: path, mount: key, opts })
   }
 }
 
