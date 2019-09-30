@@ -60,7 +60,13 @@ module.exports = class Trie {
     c.setFeed(this.feed)
     c.setTarget(key)
 
-    return c.update()
+    const node = c.update()
+
+    if (node) {
+      node.value = JSON.parse(node.value)
+    }
+
+    return node
   }
 
   put (key, value) {
