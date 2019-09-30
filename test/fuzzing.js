@@ -81,9 +81,8 @@ class ReferenceTrie {
     return this.map(async (path, node) => {
       const otherNode = await other.get(path)
       if (!otherNode) return error(path, null, node.value, null)
-      const otherValue = JSON.parse(otherNode.value).value
+      const otherValue = otherNode.value.value
       if (otherNode.key !== path || otherValue !== node.value) {
-        console.log('path:', path, 'otherNode:', otherNode, 'node:', node)
         return error(otherNode.key, path, otherValue, node.value)
       }
     })
@@ -172,7 +171,7 @@ class TrieFuzzer extends FuzzBuzz {
 }
 
 function run () {
-  const numTests = 50000
+  const numTests = 5000
 
   test(`${numTests} fuzz operations`, async t => {
     t.plan(1)
