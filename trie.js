@@ -1,5 +1,6 @@
-const { GetController, PutController } = require('./')
+const { GetController, PutController, Node } = require('./')
 const MockFeed = require('mock-feed')
+const util = require('util')
 
 module.exports = class Trie {
   constructor () {
@@ -59,7 +60,13 @@ module.exports = class Trie {
     c.setFeed(this.feed)
     c.setTarget(key)
 
-    return c.update()
+    const node = c.update()
+
+    if (node) {
+      node.value = JSON.parse(node.value)
+    }
+
+    return node
   }
 
   put (key, value) {
@@ -119,6 +126,24 @@ module.exports = class Trie {
 
   mount (path, key, opts) {
     this._put(path, { value: path, mount: key, opts })
+  }
+
+  [util.inspect.custom] (depth, opts) {
+    const lvl = opts.indentationLvl || 0
+    const indent = ' '.repeat(lvl)
+
+    opts = { ...opts, indentationLvl: lvl + 1, feed: this.feed }
+
+    let nodes = ''
+
+    for (let i = 1; i < this.feed.length; i++) {
+      const node = Node.decode(this.feed.get(i), i)
+      nodes += node[util.inspect.custom](depth, opts) + '\n'
+    }
+
+    return indent + 'MockTrie [\n' +
+           nodes +
+           indent + ']'
   }
 }
 

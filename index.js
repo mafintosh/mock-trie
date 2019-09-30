@@ -259,10 +259,14 @@ class Node {
     }
   }
 
+  static decode (val, seq) {
+    return new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+  }
+
   [util.inspect.custom] (depth, opts) {
     const lvl = opts.indentationLvl || 0
     const indent = ' '.repeat(lvl)
-    return printNode(this, indent)
+    return printNode(this, indent, opts)
   }
 }
 
@@ -374,8 +378,9 @@ module.exports = class MockTrie {
 
 module.exports.GetController = GetController
 module.exports.PutController = PutController
+module.exports.Node = Node
 
-function printNode (node, indent, mockTrie) {
+function printNode (node, indent, opts) {
   let h = ''
 
   for (let i = 0; i < node.hash.length; i++) {
@@ -392,7 +397,7 @@ function printNode (node, indent, mockTrie) {
 
       for (let j = 0; j < links.length; j++) {
         const seq = links[j]
-        if (seq) l += (l ? ', ' : '') + j + ' -> ' + seq + (mockTrie ? ' (' + mockTrie.getSeq(seq).key.toString() + ')' : '')
+        if (seq) l += (l ? ', ' : '') + j + ' -> ' + seq + (opts && opts.feed ? ' (' + opts.feed.get(seq).key.toString() + ')' : '')
       }
 
       trie += indent + '    ' + i + ' -> [' + l + ']\n'
