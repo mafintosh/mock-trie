@@ -4,10 +4,12 @@ const MockFeed = require('mock-feed')
 module.exports = class Trie {
   constructor () {
     this.feed = new MockFeed()
+    this.feed.append({ header: true })
   }
 
   get (key) {
     const self = this
+    let prev = Infinity
 
     const c = new GetController({
       onnode (node) {
@@ -16,6 +18,8 @@ module.exports = class Trie {
 
       onclosest (node) {
         if (!node) return null
+        if (node.seq >= prev) return node
+        prev = node.seq
 
         const val = JSON.parse(node.value)
 
@@ -60,6 +64,7 @@ module.exports = class Trie {
 
   put (key, val) {
     const maxI = val.deletion ? key.split('/').length * 32 : Infinity
+    let prev = Infinity
 
     const c = new PutController({
       onlink (i, val, seq) {
@@ -76,6 +81,8 @@ module.exports = class Trie {
       },
       onclosest (node) {
         if (!node) return node
+        if (node.seq >= prev) return node
+        prev = node.seq
 
         const v = JSON.parse(node.value)
 
