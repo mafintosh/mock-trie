@@ -3,7 +3,148 @@ const HashPath = require('./hash')
 const TrieBuilder = require('./trie-builder')
 const util = require('util')
 
-class Controller {
+class PutController {
+  constructor (handlers) {
+    this.handlers = handlers
+    this.feed = null
+    this.target = null
+    this.i = 0
+    this.head = null
+    this.trieBuilder = new TrieBuilder()
+    this._reset = false
+    this._key = null
+    this._trieOffset = 0
+    this.value = null
+  }
+
+  reset () {
+    this.feed = null
+    this.target = null
+    this.trieBuilder = new TrieBuilder()
+    this.i = 0
+    this.head = null
+    this._reset = true
+    this._trieOffset = 0
+  }
+
+  setFeed (feed) {
+    this.feed = feed
+    this.head = null
+    this.i = 0
+    this._reset = true
+  }
+
+  setTarget (key) {
+    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
+    if (!this._key) this._key = key
+    this.target = new Node(key, null, null)
+    this.i = 0
+    this._reset = true
+  }
+
+  setValue (val) {
+    this.value = val
+  }
+
+  update () {
+    this._update()
+
+    const { deflated } = this.trieBuilder.finalise()
+
+    const node = {
+      key: this._key,
+      value: this.value,
+      trie: deflated
+    }
+
+    this.feed.append(node)
+  }
+
+  _link (i, val, seq) {
+    if (i < this._trieOffset) return
+    this._trieOffset = i // hack to not rebuild the trie, todo: better solition
+    if (this.handlers.onlink && !this.handlers.onlink(i, val, seq)) return
+    this.trieBuilder.addLink(i, val, seq)
+  }
+
+  _update () {
+    for (; this.i < this.target.hash.length; this.i++) {
+      if (!this.head) {
+        this.head = this.getSeq(this.feed.length - 1)
+
+        if (this._reset) {
+          this._reset = false
+          this.i--
+          continue
+        }
+      }
+
+      if (!this.head) break
+
+      const headVal = this.head.hash.get(this.i)
+      const headLink = this.i < this.head.trie.length ? this.head.trie[this.i] : null
+      const val = this.target.hash.get(this.i)
+
+      // copy over existing trie links
+      if (headLink) {
+        for (let j = 0; j < headLink.length; j++) {
+          if (j === val || !headLink[j]) continue // we are closest
+          this._link(this.i, j, headLink[j])
+        }
+      }
+
+      if (val === headVal) continue
+
+      // link the head
+      this._link(this.i, headVal, this.head.seq)
+
+      if (this.i >= this.head.trie.length) break
+
+      const link = this.head.trie[this.i]
+      if (!link) break
+
+      const seq = link[val]
+      if (!seq) break
+
+      this.head = this.getSeq(seq)
+
+      if (this._reset) {
+        this._reset = false
+        this.i--
+        continue
+      }
+    }
+
+    if (this.handlers.onclosest) {
+      this.head = this.handlers.onclosest(this.head)
+      if (this._reset) {
+        this._reset = false
+        return this._update()
+      }
+    }
+
+    if (this.head && this.head.key.equals(this.target.key)) {
+      if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
+      return this.head
+    }
+
+    return null
+  }
+
+  getSeq (seq) {
+    if (seq <= 0) return null
+    const val = this.feed.get(seq)
+    if (!val) return null
+    const node = new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    if (this.handlers.onnode) {
+      return this.handlers.onnode(node)
+    }
+    return node
+  }
+}
+
+
+class GetController {
   constructor (handlers) {
     this.handlers = handlers
     this.feed = null
@@ -25,11 +166,14 @@ class Controller {
     this.feed = feed
     this.head = null
     this.i = 0
+    this._reset = true
   }
 
   setTarget (key) {
     if (!Buffer.isBuffer(key)) key = Buffer.from(key)
     this.target = new Node(key, null, null)
+    this.i = 0
+    this._reset = true
   }
 
   update () {
@@ -74,7 +218,7 @@ class Controller {
       }
     }
 
-    if (this.head && this.head.key.equals(this.target.key)) {
+    if (this.head && this.i === this.target.hash.length) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return this.head
     }
@@ -93,7 +237,6 @@ class Controller {
     return node
   }
 }
-
 
 class Node {
   constructor (key, value, trie, seq) {
@@ -229,7 +372,8 @@ module.exports = class MockTrie {
   }
 }
 
-module.exports.Controller = Controller
+module.exports.GetController = GetController
+module.exports.PutController = PutController
 
 function printNode (node, indent, mockTrie) {
   let h = ''
