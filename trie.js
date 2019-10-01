@@ -32,6 +32,7 @@ module.exports = class Trie {
 
         if (val.mount) { // and validate prefix
           const key = (c.target.key.toString().replace(node.key.toString(), '') || '/').replace('/', '')
+          prev = Infinity
           c.reset()
           c.setFeed(m.feed) // will fail for now ...
           c.setTarget(key)
@@ -43,6 +44,7 @@ module.exports = class Trie {
         }
 
         if (val.symlink && node.key.equals(c.target.key)) {
+          prev = Infinity
           c.reset()
           c.setFeed(self.feed)
           c.setTarget(val.symlink)
