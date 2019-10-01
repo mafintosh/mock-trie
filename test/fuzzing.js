@@ -9,10 +9,19 @@ const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
 
 class TrieNode {
   constructor (key, value, opts = {}) {
-    this.key = key
     this.value = value
     this.symlink = !!opts.symlink
     this.children = new Map()
+  }
+
+  [util.inspect.custom] (depth, opts) {
+    const lvl = (opts && opts.indentationLvl) || 0
+    const indent = ' '.repeat(lvl)
+    return indent + 'TrieNode(\n'
+      + indent + '  symlink: ' + this.symlink + '\n'
+      + indent + '  value: ' + (this.value ? this.value.toString() : null) + '\n'
+      + indent + '  children: ' + [...this.children.keys()].join(',') + '\n'
+      + indent + ')'
   }
 }
 
@@ -22,25 +31,34 @@ class ReferenceTrie {
     this.root = new TrieNode('')
   }
 
-  find (path, opts = {}) {
-    let node = this.root
-    let visited = opts.visited || new Set()
-    for (let i = 0; i < path.length; i++) {
-      if (visited.has(node.key)) return null
-      let next = node.children.get(path[i])
-      if (next && next.symlink) return this.visit(next.value, opts)
+  find (node, path, opts = {}) {
+    if (!node && opts.put) node = new TrieNode(path[0], null)
+    if (!node) return null
+
+    const fullPath = opts.fullPath || ''
+
+    opts.visited = opts.visited || new Set()
+    if (opts.visited.has(fullPath)) return null
+    opts.visited.add(fullPath)
+
+    if (!path.length) {
       if (opts.put) {
-        if (!next) {
-          next = new TrieNode(path[i], null, opts)
-          node.children.set(path[i], next)
-        }
-        if (i === path.length - 1) {
-          next.value = opts.put
-        }
+        node.value = opts.put
+        node.symlink = !!opts.symlink
+        node.children = new Map()
+        return node
       }
-      node = next
+      if (node.symlink) return this.find(this.root, node.value, { ...opts })
+      return node
     }
-    return node
+
+    const nextPath = fullPath ? fullPath + '/' + path[0] : path[0]
+    var child = (node.symlink) ? this.find(this.root, node.value, { ...opts }) : node.children.get(path[0])
+    if (opts.put) {
+      if (!child) child = new TrieNode(path[0], null)
+      node.children.set(path[0], child)
+    }
+    return this.find(child, path.slice(1), { ...opts, fullPath: nextPath })
   }
 
   async map (fn) {
@@ -48,8 +66,17 @@ class ReferenceTrie {
     const stack = [{ path: '', node: this.root }]
     while (stack.length) {
       const { path, node } = stack.pop()
+      if (!node) continue
+
       if (visited.has(path)) continue
       visited.add(path)
+
+      if (node.symlink) {
+        const target = this.find(this.root, node.value)
+        stack.push({ path: node.value.join('/'), node: target })
+        await fn(path, node, target)
+        continue
+      }
       if (node.value) {
         await fn(path, node)
       }
@@ -60,11 +87,11 @@ class ReferenceTrie {
   }
 
   put (path, value, opts) {
-    this.find(path, { put: value })
+    this.find(this.root, path, { ...opts, put: value })
   }
 
   symlink (targetPath, linknamePath) {
-    this.put(linknamePath, targetPath, { symlink: true })
+    this.put(linknamePath, targetPath, { symlink: true, debug: true })
   }
 
   rename (fromPath, toPath) {
@@ -76,12 +103,15 @@ class ReferenceTrie {
   }
 
   validate (other) {
-    return this.map(async (path, node) => {
+    return this.map(async (path, node, target) => {
+      const expectedValue = node.symlink ? (target && target.value) : (node && node.value)
       const otherNode = await other.get(path)
+      if (!expectedValue && !otherNode) return
       if (!otherNode) return error(null, path, null, node.value)
       const otherValue = otherNode.value.value
-      if (otherNode.key !== path || otherValue !== node.value) {
-        return error(otherNode.key, path, otherValue, node.value)
+      if (!expectedValue) return error(otherNode.key, path, otherValue, null)
+      if (otherNode.key !== path || otherValue !== expectedValue) {
+        return error(otherNode.key, path, otherValue, expectedValue)
       }
     })
 
@@ -116,13 +146,12 @@ class TrieFuzzer extends FuzzBuzz {
 
     // TODO: Hack for simple code generation.
     this._trace = [
-      'const Trie = require(\'../trie\')',
       'const trie = new Trie()',
       ''
     ]
 
     this.add(2, this.putNormalValue)
-    // this.add(1, this.createSymlink)
+    this.add(1, this.createSymlink)
     // this.add(1, this.rename)
   }
 
@@ -153,7 +182,7 @@ class TrieFuzzer extends FuzzBuzz {
     const target = targetPath.join('/')
 
     // Do not create circular symlinks
-    if (linkname.startsWith(target)) return
+    if (linkname.startsWith(target) || target.startsWith(linkname)) return
 
     this.debug('creating symlink:', linkname, '->', target)
     await this.trie.symlink(target, linkname)
@@ -169,7 +198,10 @@ class TrieFuzzer extends FuzzBuzz {
 
     this.debug('renaming:', from, '->', to)
     await this.trie.rename(from, to)
+
+    // this.trace('await trie.rename(%o, %o)', from, to)
     this._trace.push(`await trie.rename(\'${from}\', \'${to}\')`)
+
     this.reference.rename(fromPath, toPath)
   }
 
@@ -177,43 +209,56 @@ class TrieFuzzer extends FuzzBuzz {
     this.debug('validating against reference:\n', await this.reference.print())
     try {
       await this.reference.validate(this.trie)
+      return null
     } catch (err) {
       if (!err.mismatch) throw err
       const { key, value, expectedKey, expectedValue } = err.mismatch
       this._trace.push(...[
         '',
         `// Should return ${expectedKey} -> ${expectedValue}`,
-        `await this.trie.get(\'${key}\', \'${value}\')`
+        `// Actually returns ${key} -> ${value}`,
+        `const node = await trie.get('${key}')`,
+        `const value = node.value ? node.value.value : null`,
+        `t.same(value, ${expectedValue ? `'${expectedValue}'` : null})`,
+        `t.end()`
       ])
-      const testCase = `async function run () {\n   ${ this._trace.join('\n   ')}\n }\n run()`
-      console.error('Failing Test:\n', testCase, '\n')
+      const requires = 'const test = require(\'tape\')\nconst Trie = require(\'../trie\')\n\n'
+      const testCase = `${requires}test(\'failing autogenerated test case\', async t => {\n  ${this._trace.join('\n  ')} \n})`
+      err.testCase = testCase
+      throw err
     }
   }
 }
 
-function run () {
-  const numTests = 50
-
-  test(`${numTests} fuzz operations`, async t => {
-    t.plan(1)
-
-    const fuzz = new TrieFuzzer({
-      seed: 'hypertrie',
-      debugging: true,
-      maxComponentLength: 5,
-      maxPathDepth: 10
-    })
-
+function run (numTests, numOperations) {
+  test(`${numTests} runs with ${numOperations} fuzz operations each`, async t => {
+    var error = null
     try {
-      await fuzz.run(numTests)
-      t.pass('fuzzing succeeded')
+      for (let i = 0; i < numTests; i++) {
+        const fuzz = new TrieFuzzer({
+          seed: `hypertrie-${i}`,
+          debugging: true,
+          maxComponentLength: 5,
+          maxPathDepth: 3
+        })
+        await fuzz.run(numOperations)
+      }
     } catch (err) {
-      t.error(err, 'no error')
+      error = err
+      t.fail(error)
+      if (error.testCase) {
+        console.error('Failing Test:\n')
+        console.error(error.testCase)
+        console.error()
+      }
     }
+    if (error) t.fail('fuzzing failed')
+    else t.pass('fuzzing succeeded')
+    t.end()
   })
 }
 
-run()
+run(1000, 5)
 
 function randomString (alphabet, generator, length) {
   var s = ''

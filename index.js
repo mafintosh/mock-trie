@@ -264,7 +264,7 @@ class Node {
   }
 
   [util.inspect.custom] (depth, opts) {
-    const lvl = opts.indentationLvl || 0
+    const lvl = (opts && opts.indentationLvl) || 0
     const indent = ' '.repeat(lvl)
     return printNode(this, indent, opts)
   }
@@ -360,7 +360,7 @@ module.exports = class MockTrie {
   }
 
   [util.inspect.custom] (depth, opts) {
-    const lvl = opts.indentationLvl || 0
+    const lvl = (opts && opts.indentationLvl) || 0
     const indent = ' '.repeat(lvl)
 
     let nodes = ''
@@ -408,7 +408,7 @@ function printNode (node, indent, opts) {
     + indent + '  seq: ' + node.seq + '\n'
     + indent + '  hash: ' + h + '\n'
     + indent + '  key: ' + node.key.toString() + '\n'
-    + indent + '  value: ' + (node.value && node.value.toString()) + '\n'
+    + indent + '  value: ' + (node.value && JSON.stringify(node.value)) + '\n'
     + indent + '  trie:\n'
     + trie
     + indent + '}'

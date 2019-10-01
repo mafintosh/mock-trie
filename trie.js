@@ -129,7 +129,7 @@ module.exports = class Trie {
   }
 
   [util.inspect.custom] (depth, opts) {
-    const lvl = opts.indentationLvl || 0
+    const lvl = (opts && opts.indentationLvl) || 0
     const indent = ' '.repeat(lvl)
 
     opts = { ...opts, indentationLvl: lvl + 1, feed: this.feed }
