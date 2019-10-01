@@ -1,8 +1,10 @@
 const test = require('tape')
 const util = require('util')
+const SandboxPath = require('sandbox-path')
 const FuzzBuzz = require('fuzzbuzz')
 
 const Trie = require('../trie')
+const path = new SandboxPath('/')
 
 const KEY_CHARACTERS = 'abcd'
 const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
@@ -31,34 +33,62 @@ class ReferenceTrie {
     this.root = new TrieNode('')
   }
 
-  find (node, path, opts = {}) {
-    if (!node && opts.put) node = new TrieNode(path[0], null)
-    if (!node) return null
+  _traverse (path, node, handlers = {}, state = {}) {
+    state.visited = state.visited || new Set()
+    const fullPath = state.fullPath || ''
 
-    const fullPath = opts.fullPath || ''
-
-    opts.visited = opts.visited || new Set()
-    if (opts.visited.has(fullPath)) return null
-    opts.visited.add(fullPath)
+    if (state.debug) console.log('VISITED CHECK:', fullPath, state.visited)
+    if (fullPath && state.visited.has(fullPath)) return null
+    if (state.debug) console.log('NOT VISITED')
+    state.visited.add(fullPath)
 
     if (!path.length) {
-      if (opts.put) {
-        node.value = opts.put
-        node.symlink = !!opts.symlink
-        node.children = new Map()
-        return node
-      }
-      if (node.symlink) return this.find(this.root, node.value, { ...opts })
+      if (handlers.onfinal) node = handlers.onfinal(fullPath, node, state)
       return node
     }
 
-    const nextPath = fullPath ? fullPath + '/' + path[0] : path[0]
-    var child = (node.symlink) ? this.find(this.root, node.value, { ...opts }) : node.children.get(path[0])
-    if (opts.put) {
-      if (!child) child = new TrieNode(path[0], null)
-      node.children.set(path[0], child)
+    let next = node && node.children.get(path[0])
+    if (next && next.symlink) {
+      if (state.debug) console.log('TRAVERSING INTO SYMLINK:', next.value)
+      next = this._traverse(next.value, this.root, {}, { visited: state.visited, debug: state.debug })
+      if (state.debug) console.log('TRAVERSING RESULT:', next)
     }
-    return this.find(child, path.slice(1), { ...opts, fullPath: nextPath })
+    if (handlers.onnode) next = handlers.onnode(fullPath, path[0], node, next, state)
+    if (state.debug) console.log('TRAVERSE NEXT:', next)
+
+    const nextPath = fullPath ? fullPath + '/' + path[0] : path[0]
+    return this._traverse(path.slice(1), next, handlers, { ...state, fullPath: nextPath })
+  }
+
+  _put (path, value, opts = {}) {
+    this._traverse(path, this.root, {
+      onnode: (fullPath, component, node, next, state) => {
+        if (opts.debug) console.log('PUT ONNODE, fullPath:', fullPath, 'component:', component, 'node:', node)
+        if (!next) next = new TrieNode(component, null)
+        node.children.set(component, next)
+        return next
+      },
+      onfinal: (fullPath, node, state) => {
+        if (opts.debug) console.log('PUT ONFINAL, fullPath:', fullPath, 'node:', node)
+        if (!node) node = new TrieNode(null, value, opts)
+        node.value = value
+        node.symlink = !!opts.symlink
+        return node
+      }
+    }, { debug: opts.debug })
+  }
+
+  _get (path, opts = {}) {
+    return this._traverse(path, this.root, {
+      onnode: (fullPath, component, node, next, state) => {
+        if (opts.debug) console.log('GET ONNODE, fullPath:', fullPath, 'component:', component, 'node:', node)
+        return next
+      },
+      onfinal: (fullPath, node, state) => {
+        if (opts.debug) console.log('GET ONFINAL, fullPath:', fullPath, 'node:', node)
+        return node
+      }
+    }, { debug: opts.debug })
   }
 
   async map (fn) {
@@ -72,7 +102,7 @@ class ReferenceTrie {
       visited.add(path)
 
       if (node.symlink) {
-        const target = this.find(this.root, node.value)
+        const target = this.get(node.value)
         stack.push({ path: node.value.join('/'), node: target })
         await fn(path, node, target)
         continue
@@ -86,8 +116,16 @@ class ReferenceTrie {
     }
   }
 
-  put (path, value, opts) {
-    this.find(this.root, path, { ...opts, put: value })
+  put (path, value, opts = {})  {
+    const key = path.join('/')
+    const debug = key === 'd'
+    this._put(path, value, { ...opts, debug })
+  }
+
+  get (path, opts = {}) {
+    const key = path.join('/')
+    const debug = key === 'd'
+    return this._get(path, { ...opts, debug})
   }
 
   symlink (targetPath, linknamePath) {
@@ -102,24 +140,45 @@ class ReferenceTrie {
     fromBucket.clear()
   }
 
-  validate (other) {
-    return this.map(async (path, node, target) => {
-      const expectedValue = node.symlink ? (target && target.value) : (node && node.value)
-      const otherNode = await other.get(path)
-      if (!expectedValue && !otherNode) return
-      if (!otherNode) return error(null, path, null, node.value)
-      const otherValue = otherNode.value.value
-      if (!expectedValue) return error(otherNode.key, path, otherValue, null)
-      if (otherNode.key !== path || otherValue !== expectedValue) {
-        return error(otherNode.key, path, otherValue, expectedValue)
-      }
-    })
+  _error (key, expectedKey, value, expectedValue) {
+    const error = new Error('Found a key/value mismatch.')
+    error.mismatch = { key, expectedKey, value, expectedValue }
+    throw error
+  }
 
-    function error (key, expectedKey, value, expectedValue) {
-      const error = new Error('Found a key/value mismatch.')
-      error.mismatch = { key, expectedKey, value, expectedValue }
-      throw error
+  _validate (path, expectedNode, actualNode) {
+    const expectedValue = expectedNode ? expectedNode.value : null
+    const actualValue = actualNode ? actualNode.value.value : null
+    console.log('actualValue:', actualValue, 'expectedValue:', expectedValue)
+    if (!expectedValue && !actualValue) return
+
+    if (!actualValue) return this._error(null, path, null, expectedValue)
+    if (!expectedValue) return this._error(actualNode.key, null, actualValue, null)
+
+    if (!actualValue && !expectedValue) return
+    if (!expectedValue) return this._error(actualNode.key, path, actualValue, null)
+
+    if (actualNode.key !== path || actualValue !== expectedValue) {
+      return this._error(actualNode.key, path, actualValue, expectedValue)
     }
+  }
+
+  async validatePath (path, other) {
+    const key = path.join('/')
+    const debug = key === 'd/cb'
+    console.log('VALIDATING SYNTHETIC KEY:', key)
+    const expectedNode = this.get(path, { debug })
+    const actualNode = await other.get(key)
+    return this._validate(key, expectedNode, actualNode)
+  }
+
+  validateAllReachable (other) {
+    return this.map(async (path, node, target) => {
+      const expectedNode = node.symlink ? target : node
+      const otherNode = await other.get(path)
+      console.log('VALIDATING REACHABLE KEY:', path)
+      return this._validate(path, expectedNode, otherNode)
+    })
   }
 
   async print (opts = {}) {
@@ -143,6 +202,7 @@ class TrieFuzzer extends FuzzBuzz {
     this.reference = new ReferenceTrie(this.randomInt.bind(this))
     this._maxComponentLength = opts.maxComponentLength || 10
     this._maxPathDepth = opts.maxPathDepth || 10
+    this._syntheticKeys = opts.syntheticKeys || 0
 
     // TODO: Hack for simple code generation.
     this._trace = [
@@ -205,11 +265,18 @@ class TrieFuzzer extends FuzzBuzz {
     this.reference.rename(fromPath, toPath)
   }
 
+  async _validateWithSyntheticKeys (other) {
+    for (let i = 0; i < this._syntheticKeys; i++) {
+      const { path } = this._generatePair()
+      await this.reference.validatePath(path, other)
+    }
+  }
+
   async _validate () {
     this.debug('validating against reference:\n', await this.reference.print())
     try {
-      await this.reference.validate(this.trie)
-      return null
+      await this.reference.validateAllReachable(this.trie)
+      await this._validateWithSyntheticKeys(this.trie)
     } catch (err) {
       if (!err.mismatch) throw err
       const { key, value, expectedKey, expectedValue } = err.mismatch
@@ -239,7 +306,8 @@ function run (numTests, numOperations) {
           seed: `hypertrie-${i}`,
           debugging: true,
           maxComponentLength: 5,
-          maxPathDepth: 3
+          maxPathDepth: 3,
+          syntheticKeys: 100
         })
         await fuzz.run(numOperations)
       }
@@ -258,7 +326,7 @@ function run (numTests, numOperations) {
   })
 }
 
-run(1000, 5)
+run(100, 5)
 
 function randomString (alphabet, generator, length) {
   var s = ''
