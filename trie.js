@@ -118,6 +118,7 @@ module.exports = class Trie {
   }
 
   symlink (target, linkname) {
+    // this._put(linkname, { deletion: true })
     this._put(linkname, { value: linkname, symlink: target })
   }
 
