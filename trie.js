@@ -1,6 +1,16 @@
 const { GetController, PutController, Node } = require('./')
+const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
 const util = require('util')
+
+const {
+  resolveLink,
+  shouldFollowLink,
+  linkContains,
+  redirectTo
+} = require('./lib/paths')
+
+const MAX_SYMLINK_DEPTH = 20
 
 module.exports = class Trie {
   constructor () {
@@ -11,13 +21,16 @@ module.exports = class Trie {
   get (key) {
     const self = this
     let prev = Infinity
+    var depth = 0
 
     const c = new GetController({
       onnode (node) {
+        // console.log('GET NODE:', node, 'TARGET:', c.target)
         return node
       },
 
       onclosest (node) {
+        // console.log('GET CLOSEST:', node)
         if (!node) return null
         if (node.seq >= prev) return node
         prev = node.seq
@@ -43,11 +56,22 @@ module.exports = class Trie {
           return null
         }
 
-        if (val.symlink && node.key.equals(c.target.key)) {
-          prev = Infinity
-          c.reset()
-          c.setFeed(self.feed)
-          c.setTarget(val.symlink)
+        if (val.symlink) {
+          const target = c.target.key.toString()
+          const linkname = node.key.toString()
+          // console.log('IN A SYMLINK, target:', target, 'linkname:', linkname)
+          if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
+            const symlink = JSON.parse(node.value).symlink
+            const resolved = resolveLink(target, linkname, symlink)
+            // console.log('FOUND SYMLINK:', symlink, 'AT:', linkname, 'TARGET:', target, 'RIGHT KEY?', target.startsWith(linkname))
+            // console.log('  setting target to:', resolved, 'symlink:', symlink)
+            prev = Infinity
+            c.reset()
+            c.setFeed(self.feed)
+            c.setTarget(resolved)
+            depth++
+            return null
+          }
           return null
         }
 
@@ -75,9 +99,17 @@ module.exports = class Trie {
     this._put(key, { value })
   }
 
+  del (key, opts) {
+    const value = opts && opts.value
+    this._put(key, { value, deletion: true })
+  }
+
   _put (key, val) {
+    const self = this
     const maxI = val.deletion ? key.split('/').length * 32 : Infinity
     let prev = Infinity
+
+    // console.log('before put, trie:', this)
 
     const c = new PutController({
       onlink (i, val, seq) {
@@ -98,14 +130,25 @@ module.exports = class Trie {
         prev = node.seq
 
         const v = JSON.parse(node.value)
+        // console.log('CLOSEST VALUE:', v)
 
-        if (v.rename) {
+        // 1) Check that you match the symlink/rename
+        // 2) Rename to current target resolved to symlink/rename
+        if (v.rename)  {
           const key = redirectTo(c.target, node, v.rename)
           c.setTarget(key)
           return node
-        }
-        // const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
+        } else if (v.symlink && shouldFollowLink(node.key, c.target.key)) {
+          const target = c.target.key.toString()
+          const key = node.key.toString()
+          if (target === key) return node
 
+          const resolved = resolveLink(target, key, v.symlink)
+          c.reset()
+          c.setKey(resolved)
+          c.setFeed(self.feed)
+          return null
+        }
         return node
       }
     })
@@ -114,11 +157,17 @@ module.exports = class Trie {
     c.setTarget(key)
     c.setValue(JSON.stringify(val))
 
-    return c.update()
+    const ret = c.update()
+    return ret
   }
 
   symlink (target, linkname) {
-    // this._put(linkname, { deletion: true })
+    this.del(linkname)
+
+    console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))
+    // Cannot link to a subdirectory of the link itself
+    if (linkContains(linkname, target)) return
+
     this._put(linkname, { value: linkname, symlink: target })
   }
 
@@ -148,11 +197,4 @@ module.exports = class Trie {
            nodes +
            indent + ']'
   }
-}
-
-function redirectTo (target, node, rename) {
-  const t = target.key.toString()
-  const n = node.key.toString()
-
-  return t.replace(n, rename)
 }

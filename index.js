@@ -40,6 +40,11 @@ class PutController {
     this.target = new Node(key, null, null)
     this.i = 0
     this._reset = true
+    return key
+  }
+
+  setKey (key) {
+    this._key = this.setTarget(key)
   }
 
   setValue (val) {
