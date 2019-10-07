@@ -78,7 +78,7 @@ class TrieFuzzer extends FuzzBuzz {
     this.debug(`creating ${absolute ? 'absolute' : 'relative'} symlink:`, linkname, '->', target)
     await this.trie.symlink(target, linkname)
     this._trace.push(`await trie.symlink(\'${target}\', \'${linkname}\')`)
-    this.reference.symlink(targetPath, linknamePath, absolute)
+    this.reference.symlink(target, linkname, absolute)
   }
 
   async rename () {
@@ -156,19 +156,16 @@ class TrieFuzzer extends FuzzBuzz {
   }
 }
 
-function run (numTests, numOperations) {
+function run (numTests, numOperations, singleSeed) {
   test(`${numTests} runs with ${numOperations} fuzz operations each`, async t => {
     var error = null
     try {
-      for (let i = 0; i < numTests; i++) {
-        const fuzz = new TrieFuzzer({
-          seed: `hypertrie-${i}`,
-          debugging: true,
-          maxComponentLength: 5,
-          maxPathDepth: 4,
-          syntheticKeys: 2000
-        })
-        await fuzz.run(numOperations)
+      if (!singleSeed) {
+        for (let i = 0; i < numTests; i++) {
+          await fuzz(i)
+        }
+      } else {
+        await fuzz(singleSeed)
       }
     } catch (err) {
       error = err
@@ -194,9 +191,21 @@ function run (numTests, numOperations) {
     else t.pass('fuzzing succeeded')
     t.end()
   })
+
+  function fuzz (seed) {
+    const tester = new TrieFuzzer({
+      seed: `hypertrie-${seed}`,
+      debugging: true,
+      maxComponentLength: 5,
+      maxPathDepth: 4,
+      syntheticKeys: 2000
+    })
+    return tester.run(numOperations)
+  }
 }
 
 run(1000, 3)
+// run(1000, 3, 310)
 
 function randomString (alphabet, generator, length) {
   var s = ''

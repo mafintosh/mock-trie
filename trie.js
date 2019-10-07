@@ -162,12 +162,11 @@ module.exports = class Trie {
   }
 
   symlink (target, linkname) {
-    this.del(linkname)
-
-    console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))
+    // console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))
     // Cannot link to a subdirectory of the link itself
     if (linkContains(linkname, target)) return
 
+    this.del(linkname)
     this._put(linkname, { value: linkname, symlink: target })
   }
 

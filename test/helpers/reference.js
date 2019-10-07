@@ -1,7 +1,8 @@
 const util = require('util')
 
 const {
-  resolveLink
+  resolveLink,
+  linkContains
 } = require('../../lib/paths')
 
 const MAX_SYMLINK_DEPTH = 20
@@ -43,11 +44,12 @@ module.exports = class ReferenceTrie {
 
     if (next.symlink) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
-      if (key === target) return finalize(next)
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
       const resolved = resolveLink(target, key, linkTarget)
+
+      if (key === target) return finalize(next)
 
       return this._put(toPath(resolved), this.root, {
         ...opts,
@@ -104,8 +106,8 @@ module.exports = class ReferenceTrie {
 
       return this._get(toPath(resolved), this.root, {
         linkDepth: linkDepth + 1,
-        target,
-        key
+        target: resolved,
+        key: null
       })
     }
 
@@ -186,9 +188,12 @@ module.exports = class ReferenceTrie {
     return this._rename(from, to, { ...opts, debug})
   }
 
-  symlink (target, linknamePath, absolute) {
+  symlink (target, linkname, absolute) {
     if (typeof target !== 'string') target = fromPath(target)
-    if (typeof linknamePath === 'string') linknamePath = toPath(linknamePath)
+    const linknamePath = (typeof linkname === 'string') ? toPath(linkname) : linkname
+
+    // Do not create self-links or links to subdirectories.
+    if (linkContains(linkname, target)) return null
 
     return this.put(linknamePath, null, { symlink: { target, absolute }, debug: true })
   }
