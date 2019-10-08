@@ -198,7 +198,7 @@ function run (numTests, numOperations, singleSeed) {
       debugging: true,
       maxComponentLength: 3,
       maxPathDepth: 6,
-      syntheticKeys: 10000,
+      syntheticKeys: 1000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
@@ -207,7 +207,7 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(3000, 5)
+run(3000, 8)
 // run(1000, 3, 2322)
 
 function randomString (alphabet, generator, length) {

@@ -63,6 +63,8 @@ class PutController {
     }
 
     this.feed.append(node)
+
+    return node
   }
 
   _link (i, val, seq) {

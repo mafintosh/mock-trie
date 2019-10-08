@@ -20,8 +20,8 @@ module.exports = class Trie {
 
   get (key) {
     const self = this
+    let depth = 0
     let prev = Infinity
-    var depth = 0
 
     const c = new GetController({
       onnode (node) {
@@ -71,6 +71,10 @@ module.exports = class Trie {
             c.setTarget(resolved)
             depth++
             return null
+          } else if (depth >= MAX_SYMLINK_DEPTH) {
+            const err = new Error('Reached maximum symlink depth.')
+            err.maxDepth = true
+            throw err
           }
           return null
         }
@@ -86,13 +90,16 @@ module.exports = class Trie {
     c.setFeed(this.feed)
     c.setTarget(key)
 
-    const node = c.update()
-
-    if (node) {
-      node.value = JSON.parse(node.value)
+    try {
+      const node = c.update()
+      if (node) {
+        node.value = JSON.parse(node.value)
+      }
+      return node
+    } catch (err) {
+      if (err.maxDepth) return null
+      throw err
     }
-
-    return node
   }
 
   put (key, value) {
@@ -107,6 +114,7 @@ module.exports = class Trie {
   _put (key, val) {
     const self = this
     let prev = Infinity
+    let depth = 0
     const isDeletion = val.deletion
 
     // console.log('before put, trie:', this)
@@ -139,16 +147,21 @@ module.exports = class Trie {
           const key = redirectTo(c.target, node, v.rename)
           c.setTarget(key)
           return node
-        } else if (v.symlink && shouldFollowLink(node.key, c.target.key)) {
+        } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
           const target = c.target.key.toString()
           const key = node.key.toString()
           if (target === key) return node
-
           const resolved = resolveLink(target, key, v.symlink)
+          prev = Infinity
           c.reset()
           c.setKey(resolved)
           c.setFeed(self.feed)
+          depth++
           return null
+        } else if (depth >= MAX_SYMLINK_DEPTH) {
+          const err = new Error('Reached maximum symlink depth.')
+          err.maxDepth = true
+          throw err
         }
         return node
       }
@@ -158,8 +171,13 @@ module.exports = class Trie {
     c.setTarget(key)
     c.setValue(JSON.stringify(val))
 
-    const ret = c.update()
-    return ret
+    try {
+      const ret = c.update()
+      return ret
+    } catch (err) {
+      if (err.maxDepth) return null
+      throw err
+    }
   }
 
   symlink (target, linkname) {
@@ -168,7 +186,9 @@ module.exports = class Trie {
     if (linkContains(linkname, target)) return
 
     this.del(linkname)
-    this._put(linkname, { value: linkname, symlink: target })
+    const node = this._put(linkname, { value: linkname, symlink: target })
+    // TODO: This is a hack because in reality the deletion/symlink should be atomically batched.
+    if (!node) this.feed.data.pop()
   }
 
   rename (from, to) {
