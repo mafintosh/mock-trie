@@ -106,14 +106,15 @@ module.exports = class Trie {
 
   _put (key, val) {
     const self = this
-    const maxI = val.deletion ? key.split('/').length * 32 : Infinity
     let prev = Infinity
+    const isDeletion = val.deletion
 
     // console.log('before put, trie:', this)
 
     const c = new PutController({
       onlink (i, val, seq) {
-        if (i >= maxI) return false
+        const max = isDeletion ? c.target.hash.length - 1 : Infinity
+        if (i >= max) return false
         return true
       },
       onnode (node) {
