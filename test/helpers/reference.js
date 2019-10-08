@@ -54,8 +54,8 @@ module.exports = class ReferenceTrie {
       return this._put(toPath(resolved), this.root, {
         ...opts,
         linkDepth: linkDepth + 1,
-        target,
-        key
+        target: resolved,
+        key: null
       })
     }
 
