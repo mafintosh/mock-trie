@@ -195,6 +195,7 @@ module.exports = class ReferenceTrie {
     // Do not create self-links or links to subdirectories.
     if (linkContains(linkname, target)) return null
 
+    this.delete(linkname)
     return this.put(linknamePath, null, { symlink: { target, absolute }, debug: true })
   }
 

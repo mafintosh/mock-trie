@@ -45,7 +45,7 @@ class TrieFuzzer extends FuzzBuzz {
 
   _generateRelativeSymlink () {
     const { path } = this._generatePair()
-    const numRelativeIndexes = this.randomInt(path.length + 1)
+    const numRelativeIndexes = this.randomInt(path.length / 2 + 1)
     const relativeIndexes = new Array(numRelativeIndexes).fill(0).map(() => this.randomInt(path.length + 1))
     for (const index of relativeIndexes) {
       path.splice(index, 0, '..')
@@ -193,19 +193,22 @@ function run (numTests, numOperations, singleSeed) {
   })
 
   function fuzz (seed) {
-    const tester = new TrieFuzzer({
-      seed: `hypertrie-${seed}`,
+    const opts = {
+      seed: `hypertrie-${seed}*`,
       debugging: true,
-      maxComponentLength: 5,
-      maxPathDepth: 4,
-      syntheticKeys: 2000
-    })
-    return tester.run(numOperations)
+      maxComponentLength: 3,
+      maxPathDepth: 6,
+      syntheticKeys: 10000,
+      numOperations
+    }
+    if (opts.debug) console.log('fuzzing with options:', opts)
+    const tester = new TrieFuzzer(opts)
+    return tester.run(opts.numOperations)
   }
 }
 
-run(1000, 3)
-// run(1000, 3, 310)
+run(3000, 4)
+// run(1000, 3, 2322)
 
 function randomString (alphabet, generator, length) {
   var s = ''
