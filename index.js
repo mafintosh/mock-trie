@@ -14,6 +14,7 @@ class PutController {
     this._reset = false
     this._key = null
     this._trieOffset = 0
+    this._o = 0
     this.value = null
   }
 
@@ -25,6 +26,7 @@ class PutController {
     this.head = null
     this._reset = true
     this._trieOffset = 0
+    this._o = 0
   }
 
   setFeed (feed) {
@@ -32,6 +34,11 @@ class PutController {
     this.head = null
     this.i = 0
     this._reset = true
+    this._o = 0
+  }
+
+  setOffset (offset) {
+    this._o = 32 * offset
   }
 
   setTarget (key) {
@@ -40,6 +47,7 @@ class PutController {
     this.target = new Node(key, null, null)
     this.i = 0
     this._reset = true
+    this._o = 0
     return key
   }
 
@@ -67,11 +75,16 @@ class PutController {
     return node
   }
 
-  _link (i, val, seq) {
+  _link (i, val, seq, offset) {
+    const x = i
+    if (!offset) offset = 0
+    offset *= 32
+    offset += this._o
+    i += this._o
     if (i < this._trieOffset) return
     this._trieOffset = i // hack to not rebuild the trie, todo: better solition
     if (this.handlers.onlink && !this.handlers.onlink(i, val, seq)) return
-    this.trieBuilder.addLink(i, val, seq)
+    this.trieBuilder.link(i, val, seq, -(offset / 32))
   }
 
   _update () {
@@ -88,31 +101,37 @@ class PutController {
 
       if (!this.head) break
 
-      const headVal = this.head.hash.get(this.i)
-      const headLink = this.i < this.head.trie.length ? this.head.trie[this.i] : null
+      const i = this.i
+      const headVal = this.head.hash.get(i)
+      const headLink = i < this.head.trie.length ? this.head.trie[i] : null
       const val = this.target.hash.get(this.i)
 
       // copy over existing trie links
       if (headLink) {
-        for (let j = 0; j < headLink.length; j++) {
-          if (j === val || !headLink[j]) continue // we are closest
-          this._link(this.i, j, headLink[j])
+        for (let k = 0; k < headLink.length; k++) {
+          if (k === val || !headLink[k]) continue // we are closest
+          this._link(i, k, headLink[k], -this.head.trieObject.offset(i, k))
         }
       }
 
       if (val === headVal) continue
 
       // link the head
-      this._link(this.i, headVal, this.head.seq)
+      this._link(i, headVal, this.head.seq)
 
-      if (this.i >= this.head.trie.length) break
+      if (i >= this.head.trie.length) break
 
-      const link = this.head.trie[this.i]
+      const link = this.head.trie[i]
       if (!link) break
 
       const seq = link[val]
       if (!seq) break
 
+      const offset = this.head.trieObject.offset(i, val)
+      if (offset) {
+        this._o = -32 * offset
+        this.i--
+      }
       this.head = this.getSeq(seq)
 
       if (this._reset) {
@@ -142,7 +161,7 @@ class PutController {
     if (seq <= 0) return null
     const val = this.feed.get(seq)
     if (!val) return null
-    const node = new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
     if (this.handlers.onnode) {
       return this.handlers.onnode(node)
     }
@@ -159,6 +178,7 @@ class GetController {
     this.i = 0
     this.head = null
     this._reset = false
+    this._o = 0
   }
 
   reset () {
@@ -167,6 +187,7 @@ class GetController {
     this.i = 0
     this.head = null
     this._reset = true
+    this._o = 0
   }
 
   setFeed (feed) {
@@ -174,12 +195,14 @@ class GetController {
     this.head = null
     this.i = 0
     this._reset = true
+    this._o = 0
   }
 
   setTarget (key) {
     if (!Buffer.isBuffer(key)) key = Buffer.from(key)
     this.target = new Node(key, null, null)
     this.i = 0
+    this._o = 0
     this._reset = true
   }
 
@@ -198,15 +221,21 @@ class GetController {
       if (!this.head) break
 
       const val = this.target.hash.get(this.i)
-      if (val === this.head.hash.get(this.i)) continue
+      const j = this.i + this._o
+      if (val === this.head.hash.get(j)) continue
 
-      if (this.i >= this.head.trie.length) break
+      if (j >= this.head.trie.length) break
 
-      const link = this.head.trie[this.i]
+      const link = this.head.trie[j]
       if (!link) break
 
       const seq = link[val]
       if (!seq) break
+
+      const offset = this.head.trieObject.offset(j, val)
+      if (offset) {
+        this._o = 32 * offset
+      }
 
       this.head = this.getSeq(seq)
 
@@ -237,7 +266,7 @@ class GetController {
     if (seq <= 0) return null
     const val = this.feed.get(seq)
     if (!val) return null
-    const node = new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
     if (this.handlers.onnode) {
       return this.handlers.onnode(node)
     }
@@ -251,7 +280,8 @@ class Node {
     this.key = key
     this.value = value || null
     this.hash = new HashPath(key)
-    this.trie = trie || []
+    this.trieObject = trie
+    this.trie = trie ? trie.links : []
     this.trieBuilder = new TrieBuilder()
   }
 
@@ -267,7 +297,7 @@ class Node {
   }
 
   static decode (val, seq) {
-    return new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    return new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
   }
 
   [util.inspect.custom] (depth, opts) {
@@ -287,7 +317,7 @@ module.exports = class MockTrie {
     if (seq <= 0) return null
     const val = this.feed.get(seq)
     if (!val) return null
-    return new Node(val.key, val.value, TrieBuilder.inflate(val.trie), seq)
+    return new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
   }
 
   head () {
@@ -404,7 +434,9 @@ function printNode (node, indent, opts) {
 
       for (let j = 0; j < links.length; j++) {
         const seq = links[j]
-        if (seq) l += (l ? ', ' : '') + j + ' -> ' + seq + (opts && opts.feed ? ' (' + opts.feed.get(seq).key.toString() + ')' : '')
+        const offset = node.trieObject.offset(i, j)
+        const oStr = offset ? ' (' + (offset < 0 ? offset : ('+' + offset)) + ')' : ''
+        if (seq) l += (l ? ', ' : '') + j + ' -> ' + seq + oStr + (opts && opts.feed ? ' (' + opts.feed.get(seq).key.toString() + ')' : '')
       }
 
       trie += indent + '    ' + i + ' -> [' + l + ']\n'
