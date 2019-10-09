@@ -103,12 +103,12 @@ module.exports = class Trie {
   }
 
   put (key, value) {
-    this._put(key, { value })
+    return this._put(key, { value })
   }
 
   del (key, opts) {
     const value = opts && opts.value
-    this._put(key, { value, deletion: true })
+    return this._put(key, { value, deletion: true })
   }
 
   _put (key, val) {
@@ -187,7 +187,10 @@ module.exports = class Trie {
     // Cannot link to a subdirectory of the link itself
     if (linkContains(linkname, target)) return
 
-    this.del(linkname)
+    const deletion = this.del(linkname)
+    // If the deletion reaches the max depth, then abort immediately.
+    if (!deletion) return
+
     const node = this._put(linkname, { value: linkname, symlink: target })
     // TODO: This is a hack because in reality the deletion/symlink should be atomically batched.
     if (!node) this.feed.data.pop()
