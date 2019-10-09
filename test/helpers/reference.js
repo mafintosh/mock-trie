@@ -122,7 +122,7 @@ module.exports = class ReferenceTrie {
     const from = this._get(fromPath, this.root)
     if (!from) return
     const to = this._put(toPath, this.root, { ...from })
-    this._put(fromPath, { delete: true })
+    this._put(fromPath, this.root, { delete: true })
   }
 
   async map (fn) {

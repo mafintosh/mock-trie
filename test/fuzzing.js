@@ -27,7 +27,7 @@ class TrieFuzzer extends FuzzBuzz {
 
     this.add(2, this.putNormalValue)
     this.add(1, this.createSymlink)
-    // this.add(1, this.rename)
+    this.add(1, this.rename)
     // this.add(1, this.delete)
     // this.add(1, this.mount)
   }
@@ -198,7 +198,7 @@ function run (numTests, numOperations, singleSeed) {
       debugging: true,
       maxComponentLength: 3,
       maxPathDepth: 6,
-      syntheticKeys: 1000,
+      syntheticKeys: 3000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
@@ -207,7 +207,7 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(3000, 8)
+run(6000, 3)
 // run(1000, 3, 2322)
 
 function randomString (alphabet, generator, length) {
