@@ -216,7 +216,7 @@ module.exports = class Trie {
   rename (from, to) {
     const { node: fromNode, feed: fromFeed } = this._getPutInfo(from, {}, true)
     this._put(from, { value: from, deletion: true })
-    const { node: toNode, feed: toFeed } = this._getPutInfo(to, {}, true)
+    const { node: toNode, feed: toFeed } = this._getPutInfo(to, {}, false)
 
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
