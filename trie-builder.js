@@ -21,6 +21,30 @@ module.exports = class TrieBuilder {
     }
   }
 
+  slice (start, end) {
+    const newTrie = new TrieBuilder()
+    end = (end === undefined) ? Infinity : end
+    newTrie.data = this.data.filter(([i, val, seq, offset]) => {
+      if (i >= start && i < end) return true
+      return false
+    })
+    return newTrie
+  }
+
+  offset (off) {
+    const newTrie = new TrieBuilder()
+    newTrie.data = this.data.map(([i, val, seq, oldOffset]) => {
+      return [i + off, val, seq, oldOffset + off]
+    })
+    return newTrie
+  }
+
+  concat (other) {
+    const newTrie = new TrieBuilder()
+    newTrie.data = [...newTrie.data, ...other.data]
+    return newTrie
+  }
+
   static inflate (buf) {
     return new Trie(buf).links
   }

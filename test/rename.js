@@ -4,6 +4,7 @@ const Trie = require('../trie')
 tape('basic rename', function (assert) {
   const t = new Trie()
 
+  t.put('b', 'b')
   t.put('a/b', 'a/b')
   t.rename('a', 'c')
   t.put('c/c', 'c/c')
@@ -15,12 +16,14 @@ tape('basic rename', function (assert) {
   assert.end()
 })
 
-tape('rename to longer path', function (assert) {
+tape.only('rename to longer path', function (assert) {
   const t = new Trie()
 
+  t.put('b', 'b')
   t.put('a/b', 'a/b')
   t.rename('a', 'c/d')
   t.put('c/d/c', 'c/d/c')
+  console.log('t:', t)
 
   assert.same(t.get('c/d/c').value.value, 'c/d/c')
   assert.same(t.get('c/d/b').value.value, 'a/b')

@@ -40,7 +40,8 @@ module.exports = class Trie {
         if (val.rename) {
           const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
           c.setTarget(key)
-          return node
+          console.log('RETURNING NULL HERE')
+          return null
         }
 
         if (val.mount) { // and validate prefix
@@ -91,7 +92,7 @@ module.exports = class Trie {
     c.setTarget(key)
 
     try {
-      const node = c.update()
+      const { node } = c.update()
       if (node) {
         node.value = JSON.parse(node.value)
       }
@@ -102,16 +103,7 @@ module.exports = class Trie {
     }
   }
 
-  put (key, value) {
-    return this._put(key, { value })
-  }
-
-  del (key, opts) {
-    const value = opts && opts.value
-    return this._put(key, { value, deletion: true })
-  }
-
-  _put (key, val) {
+  _getPutInfo (key, val = {}) {
     const self = this
     let prev = Infinity
     let depth = 0
@@ -174,13 +166,28 @@ module.exports = class Trie {
     c.setValue(JSON.stringify(val))
 
     try {
-      const ret = c.update()
-      return ret
+      return c.update()
     } catch (err) {
       if (err.maxDepth) return null
       throw err
     }
   }
+
+  _put (key, value) {
+    const { node, feed } = this._getPutInfo(key, value)
+    feed.append(node)
+    return node
+  }
+
+  put (key, value) {
+    return this._put(key, value)
+  }
+
+  del (key, opts) {
+    const value = opts && opts.value
+    return this._put(key, { value, deletion: true })
+  }
+
 
   symlink (target, linkname) {
     // console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))
@@ -197,7 +204,28 @@ module.exports = class Trie {
   }
 
   rename (from, to) {
-    this._put(to, { value: to, rename: from })
+    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
+    const { node: fromNode, feed: fromFeed } = this._getPutInfo(from)
+
+    if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
+
+    console.log('toNode:', toNode, 'fromNode:', fromNode)
+
+    const fromTrie = fromNode.trieBuilder
+      .slice(fromNode.hash.length - 1)
+      .offset((fromNode.hash.length - toNode.hash.length) / 32)
+
+    const toTrie = toNode.trieBuilder
+      .slice(0, toNode.hash.length - 1);
+
+    const { deflated } =  fromTrie.concat(toTrie).finalise()
+    const node = {
+      key: toNode.key,
+      value: JSON.stringify({ rename: from }),
+      trie: deflated
+    }
+
+    toFeed.append(node)
     this._put(from, { value: from, deletion: true })
   }
 

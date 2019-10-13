@@ -4,18 +4,20 @@ const TrieBuilder = require('./trie-builder')
 const util = require('util')
 
 class PutController {
-  constructor (handlers) {
+  constructor (handlers, opts = {}) {
     this.handlers = handlers
     this.feed = null
     this.target = null
     this.i = 0
     this.head = null
     this.trieBuilder = new TrieBuilder()
+    this.value = null
+
+    this._returnTrie = !!opts.trie
     this._reset = false
     this._key = null
     this._trieOffset = 0
     this._o = 0
-    this.value = null
   }
 
   reset () {
@@ -61,18 +63,19 @@ class PutController {
 
   update () {
     this._update()
+    if (this._returnTrie) return this.trieBuilder
 
     const { deflated } = this.trieBuilder.finalise()
 
     const node = {
       key: this._key,
       value: this.value,
-      trie: deflated
+      trie: deflated,
+      hash: this.target.hash,
+      trieBuilder: this.trieBuilder
     }
 
-    this.feed.append(node)
-
-    return node
+    return { node, feed: this.feed }
   }
 
   _link (i, val, seq, offset) {
@@ -256,10 +259,10 @@ class GetController {
 
     if (this.head && this.i === this.target.hash.length) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
-      return this.head
+      return { node: this.head, feed: this.feed }
     }
 
-    return null
+    return { node: null, feed: null }
   }
 
   getSeq (seq) {
