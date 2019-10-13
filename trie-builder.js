@@ -41,7 +41,7 @@ module.exports = class TrieBuilder {
 
   concat (other) {
     const newTrie = new TrieBuilder()
-    newTrie.data = [...newTrie.data, ...other.data]
+    newTrie.data = [...this.data, ...other.data]
     return newTrie
   }
 

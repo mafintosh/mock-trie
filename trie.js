@@ -215,8 +215,14 @@ module.exports = class Trie {
       .slice(fromNode.hash.length - 1)
       .offset((fromNode.hash.length - toNode.hash.length) / 32)
 
+    console.log('FROM TRIE:', fromTrie)
+
     const toTrie = toNode.trieBuilder
       .slice(0, toNode.hash.length - 1);
+
+    console.log('TO TRIE:', toTrie)
+    console.log('CONCATED:', fromTrie.concat(toTrie))
+
 
     const { deflated } =  fromTrie.concat(toTrie).finalise()
     const node = {
