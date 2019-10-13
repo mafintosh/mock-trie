@@ -34,12 +34,16 @@ module.exports = class Trie {
         if (!node) return null
         if (node.seq >= prev) return node
         prev = node.seq
-
+// console.log('closett', node, c.i, node.hash.length)
         const val = JSON.parse(node.value)
 
         if (val.rename) {
           const key = redirectTo(c.target, node, val.rename)
           // const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
+          // console.log('c.target', c.target.key.toString())
+          // console.log('node', node.key.toString())
+          // console.log('rename', val.rename.toString())
+          // console.log('recirect!', key)
           c.setTarget(key)
           return c.getSeq(node.seq - 1) // TODO: just check that we do not visit the same node twice instead
         }
@@ -138,11 +142,13 @@ module.exports = class Trie {
         // 1) Check that you match the symlink/rename
         // 2) Rename to current target resolved to symlink/rename
         if (v.rename)  {
-          const key = redirectTo(c.target, node, v.rename)
-          const prev = c.target.hash.length
-          c.setTarget(key)
-          c.setOffset((prev - c.target.hash.length) / 32)
-          return node
+          if (c.i >= node.hash.length) {
+            const key = redirectTo(c.target, node, v.rename)
+            const prev = c.target.hash.length
+            c.setTarget(key)
+          }
+          // c.setOffset((prev - c.target.hash.length) / 32)
+          return c.getSeq(node.seq - 1)
         } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
           const target = c.target.key.toString()
           const key = node.key.toString()

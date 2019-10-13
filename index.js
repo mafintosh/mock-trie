@@ -183,6 +183,7 @@ class GetController {
     this.head = null
     this._reset = false
     this._o = 0
+    this._length = -1
   }
 
   reset () {
@@ -205,6 +206,7 @@ class GetController {
   setTarget (key) {
     if (!Buffer.isBuffer(key)) key = Buffer.from(key)
     this.target = new Node(key, null, null)
+    if (this._length === -1) this._length = this.target.hash.length
     this.i = 0
     this._o = 0
     this._reset = true
@@ -225,8 +227,12 @@ class GetController {
       if (!this.head) break
 
       const val = this.target.hash.get(this.i)
-      const j = this.i + this._o
-      if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) continue
+    // console.log('target is', this.i, val, this.target.key.toString())
+      const j = this.j = this.i + this._o
+    // console.log('head is', j, this.head.hash.get(j), this.head.key.toString())
+      if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
+        continue
+      }
 
       if (j >= this.head.trie.length) break
 
@@ -238,12 +244,16 @@ class GetController {
 
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
-        this._o = 32 * offset
+        this._o += 32 * offset
+        this._length += this._o
+      } else {
+        // this._o = 0
       }
 
       this.head = this.getSeq(seq)
 
       if (this._reset) {
+        this._o = 0
         this._reset = false
         this.i--
         continue
