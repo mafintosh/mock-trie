@@ -40,7 +40,6 @@ module.exports = class Trie {
         if (val.rename) {
           const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
           c.setTarget(key)
-          console.log('RETURNING NULL HERE')
           return null
         }
 
@@ -83,6 +82,8 @@ module.exports = class Trie {
         return node
       },
       finalise (node) {
+        const val = JSON.parse(node.value)
+        if (val.rename) return null
         node.key = key
         return node
       }
@@ -174,20 +175,22 @@ module.exports = class Trie {
   }
 
   _put (key, value) {
-    const { node, feed } = this._getPutInfo(key, value)
+    const info = this._getPutInfo(key, value)
+    if (!info) return
+
+    const { node, feed } = info
     feed.append(node)
     return node
   }
 
   put (key, value) {
-    return this._put(key, value)
+    return this._put(key, { value })
   }
 
   del (key, opts) {
     const value = opts && opts.value
     return this._put(key, { value, deletion: true })
   }
-
 
   symlink (target, linkname) {
     // console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))

@@ -16,7 +16,7 @@ tape('basic rename', function (assert) {
   assert.end()
 })
 
-tape.only('rename to longer path', function (assert) {
+tape('rename to longer path', function (assert) {
   const t = new Trie()
 
   t.put('b', 'b')
