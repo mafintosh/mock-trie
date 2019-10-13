@@ -73,7 +73,7 @@ module.exports = class ReferenceTrie {
         node.children = new Map()
       } else {
         if (opts.value) {
-          node.value = opts.value 
+          node.value = opts.value
           node.symlink = null
         } else if (opts.symlink) {
           node.symlink = opts.symlink
@@ -121,6 +121,7 @@ module.exports = class ReferenceTrie {
   _rename (fromPath, toPath) {
     const from = this._get(fromPath, this.root)
     if (!from) return
+    this._put(toPath, this.root, { delete: true })
     const to = this._put(toPath, this.root, { ...from })
     this._put(fromPath, this.root, { delete: true })
   }
