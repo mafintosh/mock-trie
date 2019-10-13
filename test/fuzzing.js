@@ -207,7 +207,7 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(6000, 3)
+run(6000, 5)
 // run(1000, 3, 2322)
 
 function randomString (alphabet, generator, length) {
