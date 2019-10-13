@@ -208,11 +208,10 @@ module.exports = class Trie {
 
   rename (from, to) {
     const { node: fromNode, feed: fromFeed } = this._getPutInfo(from)
+    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
 
     this._put(from, { value: from, deletion: true })
 
-    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
-console.log('offset', (fromNode.hash.length - toNode.hash.length) / 32)
     const fromTrie = fromNode.trieBuilder
       .slice(fromNode.hash.length - 1)
       .offset(fromNode.hash.length - toNode.hash.length)
