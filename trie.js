@@ -40,7 +40,7 @@ module.exports = class Trie {
         if (val.rename) {
           const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
           c.setTarget(key)
-          return null
+          return node
         }
 
         if (val.mount) { // and validate prefix
