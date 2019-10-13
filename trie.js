@@ -204,25 +204,20 @@ module.exports = class Trie {
   }
 
   rename (from, to) {
-    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
     const { node: fromNode, feed: fromFeed } = this._getPutInfo(from)
 
-    if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
+    this._put(from, { value: from, deletion: true })
 
-    console.log('toNode:', toNode, 'fromNode:', fromNode)
-
+    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
+console.log('offset', (fromNode.hash.length - toNode.hash.length) / 32)
     const fromTrie = fromNode.trieBuilder
       .slice(fromNode.hash.length - 1)
       .offset((fromNode.hash.length - toNode.hash.length) / 32)
 
-    console.log('FROM TRIE:', fromTrie)
-
     const toTrie = toNode.trieBuilder
       .slice(0, toNode.hash.length - 1);
 
-    console.log('TO TRIE:', toTrie)
-    console.log('CONCATED:', fromTrie.concat(toTrie))
-
+    if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
 
     const { deflated } =  fromTrie.concat(toTrie).finalise()
     const node = {
@@ -232,7 +227,6 @@ module.exports = class Trie {
     }
 
     toFeed.append(node)
-    this._put(from, { value: from, deletion: true })
   }
 
   mount (path, key, opts) {
