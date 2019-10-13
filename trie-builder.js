@@ -78,7 +78,7 @@ class Trie {
     for (const [i, val, seq, offset] of this.data) {
       links[i] = links[i] || []
       while (links[i].length <= val) links[i].push(0)
-      links[i][val] = seq
+      if (!links[i][val]) links[i][val] = seq
     }
     return links
   }
