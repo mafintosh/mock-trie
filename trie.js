@@ -139,9 +139,9 @@ module.exports = class Trie {
         // 2) Rename to current target resolved to symlink/rename
         if (v.rename)  {
           const key = redirectTo(c.target, node, v.rename)
-          // const prev = c.target.hash.length
+          const prev = c.target.hash.length
           c.setTarget(key)
-          // c.setOffset((prev - c.target.hash.length) / 32)
+          c.setOffset((prev - c.target.hash.length) / 32)
           return node
         } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
           const target = c.target.key.toString()
