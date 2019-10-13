@@ -109,7 +109,7 @@ module.exports = class Trie {
     }
   }
 
-  _getPutInfo (key, val = {}) {
+  _getPutInfo (key, val = {}, renaming) {
     const self = this
     let prev = Infinity
     let depth = 0
@@ -137,7 +137,6 @@ module.exports = class Trie {
         prev = node.seq
 
         const v = JSON.parse(node.value)
-        // console.log('CLOSEST VALUE:', v)
 
         // 1) Check that you match the symlink/rename
         // 2) Rename to current target resolved to symlink/rename
@@ -152,7 +151,7 @@ module.exports = class Trie {
         } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
           const target = c.target.key.toString()
           const key = node.key.toString()
-          if (target === key) return node
+          if (target === key && !c.renaming) return node
           const resolved = resolveLink(target, key, v.symlink)
           prev = Infinity
           c.reset()
@@ -169,6 +168,7 @@ module.exports = class Trie {
       }
     })
 
+    c.renaming = !!renaming
     c.setFeed(this.feed)
     c.setTarget(key)
     c.setValue(JSON.stringify(val))
@@ -214,9 +214,9 @@ module.exports = class Trie {
   }
 
   rename (from, to) {
-    const { node: fromNode, feed: fromFeed } = this._getPutInfo(from)
+    const { node: fromNode, feed: fromFeed } = this._getPutInfo(from, {}, true)
     this._put(from, { value: from, deletion: true })
-    const { node: toNode, feed: toFeed } = this._getPutInfo(to)
+    const { node: toNode, feed: toFeed } = this._getPutInfo(to, {}, true)
 
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
@@ -224,7 +224,6 @@ module.exports = class Trie {
     if (fromNode && fromNode.head && fromNode.head.key.equals(fromNode.key)) {
       fromNode.trieBuilder.link(fromNode.hash.length - 1, 4, fromNode.head.seq)
     }
-
 
     const fromTrie = fromNode.trieBuilder
       .slice(fromHash.length - 1)
