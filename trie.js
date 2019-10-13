@@ -1,4 +1,5 @@
 const { GetController, PutController, Node } = require('./')
+const Hash = require('./hash')
 const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
 const util = require('util')
@@ -30,7 +31,6 @@ module.exports = class Trie {
       },
 
       onclosest (node) {
-        // console.log('GET CLOSEST:', node)
         if (!node) return null
         if (node.seq >= prev) return node
         prev = node.seq
@@ -212,16 +212,20 @@ module.exports = class Trie {
     this._put(from, { value: from, deletion: true })
     const { node: toNode, feed: toFeed } = this._getPutInfo(to)
 
+    const fromHash = new Hash(fromNode.key)
+    const toHash = new Hash(toNode.key)
+
     if (fromNode && fromNode.head && fromNode.head.key.equals(fromNode.key)) {
       fromNode.trieBuilder.link(fromNode.hash.length - 1, 4, fromNode.head.seq)
     }
 
+
     const fromTrie = fromNode.trieBuilder
-      .slice(fromNode.hash.length - 1)
-      .offset(fromNode.hash.length - toNode.hash.length)
+      .slice(fromHash.length - 1)
+      .offset(fromHash.length - toHash.length)
 
     const toTrie = toNode.trieBuilder
-      .slice(0, toNode.hash.length - 1);
+      .slice(0, toHash.length - 1);
 
     if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
 
