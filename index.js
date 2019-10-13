@@ -72,7 +72,8 @@ class PutController {
       value: this.value,
       trie: deflated,
       hash: this.target.hash,
-      trieBuilder: this.trieBuilder
+      trieBuilder: this.trieBuilder,
+      head: this.head
     }
 
     return { node, feed: this.feed }
@@ -225,7 +226,7 @@ class GetController {
 
       const val = this.target.hash.get(this.i)
       const j = this.i + this._o
-      if (val === this.head.hash.get(j)) continue
+      if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) continue
 
       if (j >= this.head.trie.length) break
 

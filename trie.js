@@ -208,9 +208,12 @@ module.exports = class Trie {
 
   rename (from, to) {
     const { node: fromNode, feed: fromFeed } = this._getPutInfo(from)
+    this._put(from, { value: from, deletion: true })
     const { node: toNode, feed: toFeed } = this._getPutInfo(to)
 
-    this._put(from, { value: from, deletion: true })
+    if (fromNode && fromNode.head && fromNode.head.key.equals(fromNode.key)) {
+      fromNode.trieBuilder.link(fromNode.hash.length - 1, 4, fromNode.head.seq)
+    }
 
     const fromTrie = fromNode.trieBuilder
       .slice(fromNode.hash.length - 1)
