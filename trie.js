@@ -41,7 +41,7 @@ module.exports = class Trie {
           const key = redirectTo(c.target, node, val.rename)
           // const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
           c.setTarget(key)
-          return node
+          return c.getSeq(node.seq - 1) // TODO: just check that we do not visit the same node twice instead
         }
 
         if (val.mount) { // and validate prefix
