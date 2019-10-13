@@ -14,6 +14,14 @@ class TrieNode {
     this.children = new Map()
   }
 
+  clone () {
+    const c = new TrieNode(null, this.value, { symlink: this.symlink })
+    for (const [ key, node ] of this.children) {
+      c.children.set(key, node.clone())
+    }
+    return c
+  }
+
   [util.inspect.custom] (depth, opts) {
     const lvl = (opts && opts.indentationLvl) || 0
     const indent = ' '.repeat(lvl)
@@ -67,6 +75,7 @@ module.exports = class ReferenceTrie {
     })
 
     function finalize (node) {
+      if (node.locked) return node
       if (opts.delete) {
         node.value = null
         node.symlink = null
@@ -120,10 +129,10 @@ module.exports = class ReferenceTrie {
 
   _rename (fromPath, toPath) {
     const from = this._get(fromPath, this.root)
+    const clone = from && from.clone()
     this._put(toPath, this.root, { delete: true })
-    if (!from) return
-    const to = this._put(toPath, this.root, { ...from })
     this._put(fromPath, this.root, { delete: true })
+    if (from) this._put(toPath, this.root, clone)
   }
 
   async map (fn) {
@@ -264,4 +273,11 @@ function toPath (str) {
 
 function fromPath (path) {
   return path.join('/')
+}
+
+function startsWith (a, b) {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
 }
