@@ -75,7 +75,6 @@ module.exports = class ReferenceTrie {
     })
 
     function finalize (node) {
-      if (node.locked) return node
       if (opts.delete) {
         node.value = null
         node.symlink = null
