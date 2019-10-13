@@ -212,7 +212,7 @@ module.exports = class Trie {
 console.log('offset', (fromNode.hash.length - toNode.hash.length) / 32)
     const fromTrie = fromNode.trieBuilder
       .slice(fromNode.hash.length - 1)
-      .offset((fromNode.hash.length - toNode.hash.length) / 32)
+      .offset(fromNode.hash.length - toNode.hash.length)
 
     const toTrie = toNode.trieBuilder
       .slice(0, toNode.hash.length - 1);

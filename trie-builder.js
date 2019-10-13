@@ -34,7 +34,7 @@ module.exports = class TrieBuilder {
   offset (off) {
     const newTrie = new TrieBuilder()
     newTrie.data = this.data.map(([i, val, seq, oldOffset]) => {
-      return [i + off, val, seq, oldOffset + off]
+      return [i + off, val, seq, oldOffset + off / 32]
     })
     return newTrie
   }
