@@ -34,7 +34,7 @@ module.exports = class Trie {
         if (!node) return null
         if (node.seq >= prev) return node
         prev = node.seq
-// console.log('closett', node, c.i, node.hash.length)
+// console.log('closett', node, c.i, node.hash.length, c.target.key.toString())
         const val = JSON.parse(node.value)
 
         if (val.rename) {
@@ -62,7 +62,7 @@ module.exports = class Trie {
         }
 
         if (val.symlink) {
-          const target = c.target.key.toString()
+          const target = c.result.key.toString()
           const linkname = node.key.toString()
           // console.log('IN A SYMLINK, target:', target, 'linkname:', linkname)
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
@@ -149,7 +149,7 @@ module.exports = class Trie {
           // c.setOffset((prev - c.target.hash.length) / 32)
           return c.getSeq(node.seq - 1)
         } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
-          const target = c.target.key.toString()
+          const target = c.result.key.toString()
           const key = node.key.toString()
           if (target === key && !c.renaming) return node
           const resolved = resolveLink(target, key, v.symlink)

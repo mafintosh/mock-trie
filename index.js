@@ -26,6 +26,7 @@ class PutController {
     this.trieBuilder = new TrieBuilder()
     this.i = 0
     this.head = null
+    this.result = null
     this._reset = true
     this._trieOffset = 0
     this._o = 0
@@ -47,6 +48,7 @@ class PutController {
     if (!Buffer.isBuffer(key)) key = Buffer.from(key)
     if (!this._key) this._key = key
     this.target = new Node(key, null, null)
+    if (!this.result) this.result = this.target
     this.i = 0
     this._reset = true
     this._o = 0
@@ -191,6 +193,7 @@ class GetController {
     this.target = null
     this.i = 0
     this.head = null
+    this.result = null
     this._reset = true
     this._o = 0
   }
@@ -206,7 +209,7 @@ class GetController {
   setTarget (key) {
     if (!Buffer.isBuffer(key)) key = Buffer.from(key)
     this.target = new Node(key, null, null)
-    if (this._length === -1) this._length = this.target.hash.length
+    if (!this.result) this.result = this.target
     this.i = 0
     this._o = 0
     this._reset = true
