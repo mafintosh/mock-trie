@@ -19,6 +19,8 @@ function runTests () {
   async function assertValid (t, trie) {
     const node = await trie.get('{{ expectedKey }}')
     const value = (node && node.value) ? node.value.value : null
+
+    // Actually returns {{ actualValue }}
     t.same(value, {{ expectedValueArg }}, 'getting {{ expectedKey }} returned {{ expectedValue }}')
     t.end()
   }

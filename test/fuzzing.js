@@ -36,10 +36,10 @@ class TrieFuzzer extends FuzzBuzz {
 
   _generatePair (keyCharacters = KEY_CHARACTERS, valueCharacters = VALUE_CHARACTERS) {
     const generator = this.randomInt.bind(this)
-    const depth = this.randomInt(this._maxPathDepth) || 1
+    const depth = this.randomInt(this._maxPathDepth + 1) || 1
     const value = randomString(valueCharacters, generator, 10)
     const path = new Array(depth).fill(0).map(() => {
-      const length = this.randomInt(this._maxComponentLength) || 1
+      const length = this.randomInt(this._maxComponentLength + 1) || 1
       return randomString(keyCharacters, generator, length)
     })
     return { path, value }
@@ -233,8 +233,8 @@ function run (numTests, numOperations, singleSeed) {
     const opts = {
       seed: `hypertrie-${seed}*`,
       debugging: true,
-      maxComponentLength: 3,
-      maxPathDepth: 6,
+      maxComponentLength: 2,
+      maxPathDepth: 5,
       syntheticKeys: 3000,
       shorteningIterations: 1000,
       numOperations
@@ -267,3 +267,10 @@ function randomString (alphabet, generator, length) {
   }
   return s
 }
+
+process.on('SIGINT', () => {
+  process.exit(1)
+})
+process.on('SIGTERM', () => {
+  process.exit(1)
+})
