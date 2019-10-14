@@ -73,6 +73,15 @@ class PutController {
     return t.slice(0, ti).concat(r.slice(ri)).join('/')
   }
 
+  headKey () {
+    const r = this.result.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    return r.slice(0, ri).concat(t.slice(ti)).join('/')
+  }
 
   update () {
     this._update()
@@ -234,6 +243,16 @@ class GetController {
     const ti = Math.floor((this.i + this._o) / 32)
 
     return t.slice(0, ti).concat(r.slice(ri)).join('/')
+  }
+
+  headKey () {
+    const r = this.result.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    return r.slice(0, ri).concat(t.slice(ti)).join('/')
   }
 
   update () {
