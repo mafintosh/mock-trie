@@ -208,9 +208,9 @@ module.exports = class ReferenceTrie {
     return this.put(linknamePath, null, { symlink: { target, absolute }, debug: true })
   }
 
-  _error (key, expectedKey, value, expectedValue) {
+  _error (key, expectedKey, actualValue, expectedValue) {
     const error = new Error('Found a key/value mismatch.')
-    error.mismatch = { key, expectedKey, value, expectedValue }
+    error.mismatch = { key, expectedKey, actualValue, expectedValue }
     throw error
   }
 

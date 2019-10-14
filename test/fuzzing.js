@@ -1,4 +1,7 @@
+const p = require('path')
+const fs = require('fs')
 const test = require('tape')
+const tmp = require('tmp')
 const SandboxPath = require('sandbox-path')
 const FuzzBuzz = require('fuzzbuzz')
 
@@ -6,8 +9,10 @@ const Trie = require('../trie')
 const ReferenceTrie = require('./helpers/reference')
 const path = new SandboxPath('/')
 
+const SCAFFOLD_PATH = p.join(__dirname, 'helpers', 'scaffold.js.template')
 const KEY_CHARACTERS = 'abcd'
 const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
+const SCAFFOLD = fs.readFileSync(SCAFFOLD_PATH, { encoding: 'utf8' })
 
 class TrieFuzzer extends FuzzBuzz {
   constructor (opts) {
@@ -19,11 +24,7 @@ class TrieFuzzer extends FuzzBuzz {
     this._maxPathDepth = opts.maxPathDepth || 10
     this._syntheticKeys = opts.syntheticKeys || 0
 
-    // TODO: Hack for simple code generation.
-    this._trace = [
-      'const trie = new Trie()',
-      ''
-    ]
+    this._trace = []
 
     this.add(2, this.putNormalValue)
     this.add(1, this.createSymlink)
@@ -61,10 +62,11 @@ class TrieFuzzer extends FuzzBuzz {
   async putNormalValue () {
     const { path, value } = this._generatePair()
     const key = path.join('/')
+
     this.debug('putting normal key/value:', key, '->', value)
-    await this.trie.put(key, value)
-    this._trace.push(`await trie.put(\'${key}\', \'${value}\')`)
-    this.reference.put(path, value)
+    const op = { type: 'put', args: [key, value] }
+    await this._executeOp(op, this.trie, this.reference)
+    this._trace.push(op)
   }
 
   async createSymlink () {
@@ -76,9 +78,9 @@ class TrieFuzzer extends FuzzBuzz {
     if (absolute) target = '/' + target
 
     this.debug(`creating ${absolute ? 'absolute' : 'relative'} symlink:`, linkname, '->', target)
-    await this.trie.symlink(target, linkname)
-    this._trace.push(`await trie.symlink(\'${target}\', \'${linkname}\')`)
-    this.reference.symlink(target, linkname, absolute)
+    const op = { type: 'symlink', args: [target, linkname] }
+    await this._executeOp(op, this.trie, this.reference)
+    this._trace.push(op)
   }
 
   async rename () {
@@ -88,12 +90,9 @@ class TrieFuzzer extends FuzzBuzz {
     const from = fromPath.join('/')
 
     this.debug('renaming:', from, '->', to)
-    await this.trie.rename(from, to)
-
-    // this.trace('await trie.rename(%o, %o)', from, to)
-    this._trace.push(`await trie.rename(\'${from}\', \'${to}\')`)
-
-    this.reference.rename(fromPath, toPath)
+    const op = { type: 'rename', args: [from, to] }
+    await this._executeOp(op, this.trie, this.reference)
+    this._trace.push(op)
   }
 
   async delete () {
@@ -101,56 +100,72 @@ class TrieFuzzer extends FuzzBuzz {
     const key = path.join('/')
 
     this.debug('deleting:', key)
-    await this.trie.del(key)
-
-    // this.trace('await trie.rename(%o, %o)', from, to)
-    this._trace.push(`await trie.del(\'${key}\')`)
-
-    this.reference.delete(path)
+    const op = { type: 'del', args: [key] }
+    await this._executeOp(op, this.trie, this.reference)
+    this._trace.push(op)
   }
 
-  async _validateWithSyntheticKeys (other) {
-    for (let i = 0; i < this._syntheticKeys; i++) {
-      const { path } = this._generatePair()
-      await this.reference.validatePath(path, other)
+  async _apply (op, trie) {
+    switch (op.type) {
+      case 'put':
+        return trie.put.apply(trie, op.args)
+      case 'del':
+        return trie.del.apply(trie, op.args)
+      case 'symlink':
+        return trie.symlink.apply(trie, op.args)
+      case 'rename':
+        return trie.rename.apply(trie, op.args)
+      default:
+        throw new Error('Unrecognized operation')
     }
   }
 
+  _executeOp (op, trie, reference) {
+    return Promise.all([
+      this._apply(op, trie),
+      this._apply(op, reference)
+    ])
+  }
+
+  async _validateWithSyntheticKeys () {
+    for (let i = 0; i < this._syntheticKeys; i++) {
+      const { path } = this._generatePair()
+      await this.reference.validatePath(path, this.trie)
+    }
+  }
+
+  async _shortenTestCase () {
+    var shortestTrace = [ ...this._trace ]
+    return shortestTrace
+  }
+
+  _generateTestCase (trace, expectedKey, expectedValue, actualValue) {
+    const replacements = new Map([
+      ['operations', trace.map(t => `  await trie.${t.type}(${t.args.map(a => `'${a}'`).join(',')})`).join('\n')],
+      ['expectedKey', expectedKey],
+      ['expectedValue', expectedValue],
+      ['expectedValueArg', expectedValue ? `'${expectedValue}'` : null],
+      ['actualValue', actualValue]
+    ])
+    var testCase = SCAFFOLD
+    for (const [name, value] of replacements) {
+      testCase = testCase.replace(new RegExp(`\{\{ ${name} \}\}`, 'g'), value)
+    }
+    return testCase
+  }
+
   async _validate () {
-    console.log('VALIDATING AGAINST REFERENCE')
     this.debug('validating against reference:\n', await this.reference.print())
     try {
       await this.reference.validateAllReachable(this.trie)
-      await this._validateWithSyntheticKeys(this.trie)
+      await this._validateWithSyntheticKeys()
     } catch (err) {
       if (!err.mismatch) throw err
-      const { key, value, expectedKey, expectedValue } = err.mismatch
+      const { key, actualValue, expectedKey, expectedValue } = err.mismatch
 
-      const testBody = [
-        ...this._trace,
-        '',
-        `// Should return ${expectedKey} -> ${expectedValue}`,
-        `// Actually returns ${key} -> ${value}`,
-        `const node = await trie.get('${expectedKey || key}')`,
-        `const value = (node && node.value) ? node.value.value : null`,
-        `t.same(value, ${expectedValue ? `'${expectedValue}'` : null})`,
-        `t.end()`
-      ].join('\n  ')
-      const replBody = [
-        ...this._trace,
-        'return trie'
-      ].join('\n  ')
+      const minimalTrace = await this._shortenTestCase(expectedKey, expectedValue)
+      err.testCase = this._generateTestCase(minimalTrace, expectedKey, expectedValue, actualValue)
 
-      const testRequires = 'const test = require(\'tape\')\nconst Trie = require(\'../../trie\')\n\n'
-      const replRequires = 'const Trie = require(\'./trie\')\n\n'
-      const referenceRequires = 'const Trie = require(\'./test/helpers/reference\')\n\n'
-      const testCase = `${testRequires}test(\'failing autogenerated test case\', async t => {\n  ${testBody} \n})`
-      const replScript = `${replRequires}var trie = null\n(async () => {\n  ${replBody} \n})().then(t => trie = t) \n`
-      const referenceScript = `${referenceRequires}var trie = null\n(async () => {\n  ${replBody} \n})().then(t => trie = t) \n`
-
-      err.testCase = testCase
-      err.replScript = replScript
-      err.referenceScript = referenceScript
       throw err
     }
   }
@@ -169,22 +184,16 @@ function run (numTests, numOperations, singleSeed) {
       }
     } catch (err) {
       error = err
-      console.log('TRACE:', error.stack)
-      t.fail(error)
       if (error.testCase) {
         console.error('\nFailing Test:\n')
-        console.error(error.testCase)
-        console.error()
-      }
-      if (error.replScript) {
-        console.error('Generate Trie in REPL:\n')
-        console.error(error.replScript)
-        console.error()
-      }
-      if (error.referenceScript) {
-        console.error('Generate Reference in REPL:\n')
-        console.error(error.referenceScript)
-        console.error()
+        console.error(err.testCase + '\n')
+        try {
+          const testPath = await writeTestCase(err.testCase)
+          console.error(`Failing test written to ${testPath}`)
+          console.error('Copy this file into your test/autogenerated directory before running.\n')
+        } catch (err) {
+          console.error('Could not write test file:', err)
+        }
       }
     }
     if (error) t.fail('fuzzing failed')
@@ -207,8 +216,20 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(6000, 9)
+run(6000, 90)
 // run(1000, 3, 2322)
+
+async function writeTestCase (testCase) {
+  return new Promise((resolve, reject) => {
+    tmp.file({ postfix: '.js' }, (err, path) => {
+      if (err) return reject(err)
+      fs.writeFile(path, testCase, { encoding: 'utf8' }, err => {
+        if (err) return reject(err)
+        return resolve(path)
+      })
+    })
+  })
+}
 
 function randomString (alphabet, generator, length) {
   var s = ''

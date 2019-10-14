@@ -11,7 +11,8 @@
   "devDependencies": {
     "fuzzbuzz": "^2.0.0",
     "sandbox-path": "^1.0.1",
-    "tape": "^4.11.0"
+    "tape": "^4.11.0",
+    "tmp": "^0.1.0"
   },
   "scripts": {
     "test": "tape test/*.js"
