@@ -62,8 +62,9 @@ module.exports = class Trie {
         }
 
         if (val.symlink) {
-          const target = c.result.key.toString()
+          const target = c.key()
           const linkname = node.key.toString()
+
           // console.log('IN A SYMLINK, target:', target, 'linkname:', linkname)
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
             const symlink = JSON.parse(node.value).symlink
@@ -137,6 +138,8 @@ module.exports = class Trie {
         prev = node.seq
 
         const v = JSON.parse(node.value)
+        const target = c.key()
+
 
         // 1) Check that you match the symlink/rename
         // 2) Rename to current target resolved to symlink/rename
@@ -149,8 +152,7 @@ module.exports = class Trie {
           }
           // c.setOffset((prev - c.target.hash.length) / 32)
           return c.getSeq(node.seq - 1)
-        } else if (v.symlink && shouldFollowLink(node.key, c.target.key) && depth < MAX_SYMLINK_DEPTH) {
-          const target = c.result.key.toString()
+        } else if (v.symlink && shouldFollowLink(node.key, Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
           const key = node.key.toString()
           if (target === key && !c.renaming) return node
           const resolved = resolveLink(target, key, v.symlink)

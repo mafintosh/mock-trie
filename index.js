@@ -63,6 +63,17 @@ class PutController {
     this.value = val
   }
 
+  key () {
+    const r = this.result.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    return t.slice(0, ti).concat(r.slice(ri)).join('/')
+  }
+
+
   update () {
     this._update()
     if (this._returnTrie) return this.trieBuilder
@@ -213,6 +224,16 @@ class GetController {
     this.i = 0
     this._o = 0
     this._reset = true
+  }
+
+  key () {
+    const r = this.result.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    return t.slice(0, ti).concat(r.slice(ri)).join('/')
   }
 
   update () {
