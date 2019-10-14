@@ -86,7 +86,7 @@ class PutController {
     if (!offset) offset = 0
     offset *= 32
     offset += this._o
-    i += this._o
+    // i += this._o
     if (i < this._trieOffset) return
     this._trieOffset = i // hack to not rebuild the trie, todo: better solition
     if (this.handlers.onlink && !this.handlers.onlink(i, val, seq)) return
