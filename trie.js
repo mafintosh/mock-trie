@@ -144,6 +144,7 @@ module.exports = class Trie {
           if (c.i >= node.hash.length) {
             const key = redirectTo(c.target, node, v.rename)
             const prev = c.target.hash.length
+            c._trieOffset = Math.max(c.i, c._trieOffset)
             c.setTarget(key)
           }
           // c.setOffset((prev - c.target.hash.length) / 32)
@@ -214,7 +215,9 @@ module.exports = class Trie {
   }
 
   rename (from, to) {
-    const { node: fromNode, feed: fromFeed } = this._getPutInfo(from, {}, true)
+    const f = this._getPutInfo(from, {}, true)
+    if (!f) return
+    const { node: fromNode, feed: fromFeed } = f
     this._put(from, { value: from, deletion: true })
     const { node: toNode, feed: toFeed } = this._getPutInfo(to, {}, false)
 
