@@ -231,7 +231,7 @@ module.exports = class ReferenceTrie {
   }
 
   async validatePath (path, other) {
-    const key = path.join('/')
+    const key = (typeof path === 'string') ? path : path.join('/')
     const debug = key === 'd/cb'
     const expectedNode = this.get(path, { debug })
     const actualNode = await other.get(key)

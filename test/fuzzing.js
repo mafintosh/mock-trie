@@ -23,6 +23,7 @@ class TrieFuzzer extends FuzzBuzz {
     this._maxComponentLength = opts.maxComponentLength || 10
     this._maxPathDepth = opts.maxPathDepth || 10
     this._syntheticKeys = opts.syntheticKeys || 0
+    this._shorteningIterations = opts.shorteningIterations || 0
 
     this._trace = []
 
@@ -127,6 +128,12 @@ class TrieFuzzer extends FuzzBuzz {
     ])
   }
 
+  async _executeOps (ops, trie, reference) {
+    for (const op of ops) {
+      await this._executeOp(op, trie, reference)
+    }
+  }
+
   async _validateWithSyntheticKeys () {
     for (let i = 0; i < this._syntheticKeys; i++) {
       const { path } = this._generatePair()
@@ -134,8 +141,29 @@ class TrieFuzzer extends FuzzBuzz {
     }
   }
 
-  async _shortenTestCase () {
+  async _shortenTestCase (expectedKey, expectedValue, actualValue) {
+    this.debug(`attempting to shorten the trace with ${this._shorteningIterations} mutations`)
     var shortestTrace = [ ...this._trace ]
+    var numShortenings = 0
+    for (let i = 0; i < this._shorteningIterations; i++) {
+      const newTrie = new Trie()
+      const newReference = new ReferenceTrie()
+      const removalIndex = this.randomInt(shortestTrace.length)
+      const nextTrace = [ ...shortestTrace ]
+      nextTrace.splice(removalIndex, 1)
+      await this._executeOps(nextTrace, newTrie, newReference)
+      try {
+        await newReference.validatePath(expectedKey, newTrie)
+      } catch (err) {
+        if (!err.mismatch) throw err
+        const { actualValue: newActualValue, expectedKey: newExpectedKey, expectedValue: newExpectedValue } = err.mismatch
+        if (expectedKey === newExpectedKey && expectedValue === newExpectedValue && actualValue === newActualValue) {
+          shortestTrace = nextTrace
+          numShortenings++
+        }
+      }
+    }
+    this.debug(`shortened the trace by ${numShortenings} operations`)
     return shortestTrace
   }
 
@@ -163,7 +191,7 @@ class TrieFuzzer extends FuzzBuzz {
       if (!err.mismatch) throw err
       const { key, actualValue, expectedKey, expectedValue } = err.mismatch
 
-      const minimalTrace = await this._shortenTestCase(expectedKey, expectedValue)
+      const minimalTrace = await this._shortenTestCase(expectedKey, expectedValue, actualValue)
       err.testCase = this._generateTestCase(minimalTrace, expectedKey, expectedValue, actualValue)
 
       throw err
@@ -208,6 +236,7 @@ function run (numTests, numOperations, singleSeed) {
       maxComponentLength: 3,
       maxPathDepth: 6,
       syntheticKeys: 3000,
+      shorteningIterations: 1000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
@@ -216,7 +245,7 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(6000, 90)
+run(6000, 15)
 // run(1000, 3, 2322)
 
 async function writeTestCase (testCase) {
