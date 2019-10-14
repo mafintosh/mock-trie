@@ -220,8 +220,12 @@ module.exports = class Trie {
     if (!f) return
     const { node: fromNode, feed: fromFeed } = f
     this._put(from, { value: from, deletion: true })
-    const { node: toNode, feed: toFeed } = this._getPutInfo(to, {}, false)
-
+    const t = this._getPutInfo(to, {}, false)
+    if (!t) {
+      this.feed.data.pop()
+      return
+    }
+    const { node: toNode, feed: toFeed } = t
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
 
