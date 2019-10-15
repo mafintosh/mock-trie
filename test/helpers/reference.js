@@ -146,12 +146,15 @@ module.exports = class ReferenceTrie {
   }
 
   _rename (fromNodePath, toNodePath) {
-    const { node: from } = this._get(fromNodePath, this.root, { lstat: true })
+    const { node: from, key: fromKey } = this._get(fromNodePath, this.root, { lstat: true })
     const { key: toKey } = this._get(toNodePath, this.root, { lstat: true })
+
     const resolvedToPath = toPath(toKey)
+    const resolvedFromPath = toPath(fromKey)
     const clone = from && from.clone()
-    this._put(toNodePath, this.root, { delete: true, lstat: true })
-    this._put(fromNodePath, this.root, { delete: true, lstat: true })
+
+    this._put(resolvedToPath, this.root, { delete: true, lstat: true })
+    this._put(resolvedFromPath, this.root, { delete: true, lstat: true })
     if (from) this._put(resolvedToPath, this.root, { ...clone, lstat: true })
   }
 
