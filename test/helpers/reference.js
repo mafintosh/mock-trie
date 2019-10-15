@@ -105,7 +105,6 @@ module.exports = class ReferenceTrie {
     var next = node.children.get(path[0])
     if (!next) return null
 
-    console.log('opts.noFollow', opts.noFollow)
     if (next.symlink && !opts.noFollow) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
