@@ -25,7 +25,7 @@ class TrieFuzzer extends FuzzBuzz {
     this._maxComponentLength = opts.maxComponentLength || 10
     this._maxPathDepth = opts.maxPathDepth || 10
     this._syntheticKeys = opts.syntheticKeys || 0
-    this._shorteningIterations = opts.shorteningIterations || 0
+    this._maxShorteningIterations = opts.maxShorteningIterations || 0
 
     this._trace = []
 
@@ -144,20 +144,24 @@ class TrieFuzzer extends FuzzBuzz {
   }
 
   async _shortenTestCase (expectedKey, expectedValue, actualKey, actualValue) {
-    this.debug(`attempting to shorten the trace with ${this._shorteningIterations} mutations`)
+    this.debug(`attempting to shorten the trace with a maximum of ${this._maxShorteningIterations} mutations`)
     if (!expectedKey) throw new Error('Expected key in reference trie is null')
 
     var shortestTrace = [ ...this._trace ]
     var numShortenings = 0
+    var numIterations = 0
+    const stack = shortestTrace.map((_, i) => { return { i, trace: shortestTrace } })
+    const visited = new Set()
 
-    for (let i = 0; i < this._shorteningIterations; i++) {
+    while (stack.length && numIterations < this._maxShorteningIterations) {
+      const { i, trace } = stack.pop()
+      if (!trace.length) continue
+
+      const nextTrace = [ ...trace ]
+      nextTrace.splice(i, 1)
+
       const newTrie = new Trie()
       const newReference = new ReferenceTrie()
-      const removalIndex = this.randomInt(shortestTrace.length)
-
-      const nextTrace = [ ...shortestTrace ]
-      nextTrace.splice(removalIndex, 1)
-
       await this._executeOps(nextTrace, newTrie, newReference)
 
       try {
@@ -172,12 +176,16 @@ class TrieFuzzer extends FuzzBuzz {
         } = err.mismatch
         if (actualKey === newActualKey && expectedKey === newExpectedKey &&
             expectedValue === newExpectedValue && actualValue === newActualValue) {
-          console.log('shortening trace with actualValue:', actualValue, 'newActualValue:', newActualValue, 'expectedValue:', expectedValue, 'newExpectedValue:', newExpectedValue)
-          shortestTrace = nextTrace
-          numShortenings++
+          if (nextTrace.length < shortestTrace.length) {
+            stack.push(...nextTrace.map((_, i) => { return { i, trace: nextTrace } }))
+            shortestTrace = nextTrace
+            numShortenings++
+          }
         }
       }
+      numIterations++
     }
+
     this.debug(`shortened the trace by ${numShortenings} operations`)
     return shortestTrace
   }
@@ -254,7 +262,7 @@ function run (numTests, numOperations, singleSeed) {
       maxComponentLength: 2,
       maxPathDepth: 5,
       syntheticKeys: 3000,
-      shorteningIterations: 1000,
+      maxShorteningIterations: 10000000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
