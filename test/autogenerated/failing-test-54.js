@@ -14,7 +14,7 @@ function runTests () {
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return db/b/c/b -> uhfehpfhhl', async t => {
+  test('reference should return db/b/c/b -> uhfehpfhhl', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })

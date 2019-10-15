@@ -13,7 +13,7 @@ function runTests () {
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return cd/c/dd -> ixhpyqxvib', async t => {
+  test('reference should return cd/c/dd -> ixhpyqxvib', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })

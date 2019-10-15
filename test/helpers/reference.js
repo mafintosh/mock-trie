@@ -42,6 +42,8 @@ module.exports = class ReferenceTrie {
     if (!Array.isArray(path)) throw new Error('Path must always be an array.')
     if (!path.length) return finalize(node)
 
+    // if (node && node.symlink && opts.lstat && path.length === 1) return finalize(node)
+
     const target = opts.target || path.join('/')
     const key = opts.key ? opts.key + '/' + path[0] : path[0]
     const linkDepth = opts.linkDepth || 0
@@ -51,7 +53,9 @@ module.exports = class ReferenceTrie {
     if (!next) next = new TrieNode(path[0])
     node.children.set(path[0], next)
 
-    if (next.symlink && followLink) {
+    if (next.symlink && opts.lstat && path.length === 1) return finalize(next)
+
+    if (next.symlink) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
@@ -66,8 +70,6 @@ module.exports = class ReferenceTrie {
         target: resolved,
         key: null
       })
-    } else if (next.symlink) {
-      return finalize(next)
     }
 
     return this._put(path.slice(1), next, {
@@ -98,19 +100,22 @@ module.exports = class ReferenceTrie {
 
   _get (path, node, opts = {}) {
     if (!Array.isArray(path)) throw new Error('Path must always be an array.')
-    if (!path.length) return node || null
-    if (!node) return null
+    const component = path[0] ? path[0] : ''
+    var key = opts.key ? opts.key + '/' + component : component
 
-    const target = opts.target || path.join('/')
-    const key = opts.key ? opts.key + '/' + path[0] : path[0]
-    const linkDepth = opts.linkDepth || 0
+    if (!path.length) return finalize(node)
+    if (!node) return finalize(null)
+
+    var target = opts.target || path.join('/')
+    var linkDepth = opts.linkDepth || 0
 
     var next = node.children.get(path[0])
-    const followLink = !opts.lstat || path.length !== 1
-    if (!next) return null
+    if (!next) return finalize(null)
 
-    if (next.symlink && followLink) {
-      if (linkDepth > MAX_SYMLINK_DEPTH) return null
+    if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
+
+    if (next.symlink) {
+      if (linkDepth > MAX_SYMLINK_DEPTH) return finalize(null)
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
@@ -122,8 +127,6 @@ module.exports = class ReferenceTrie {
         target: resolved,
         key: null
       })
-    } else if (next.symlink) {
-      return next
     }
 
     return this._get(path.slice(1), next, {
@@ -132,16 +135,24 @@ module.exports = class ReferenceTrie {
       target,
       key
     })
+
+    function finalize (node) {
+      const finalKey = path.length ? key + '/' + path.slice(1).join('/') : key
+      return {
+        node: node || null,
+        key: finalKey
+      }
+    }
   }
 
-  _rename (fromPath, toPath) {
-    const from = this._get(fromPath, this.root, { lstat: true })
-    if (from && from.symlink) {
-    }
+  _rename (fromNodePath, toNodePath) {
+    const { node: from } = this._get(fromNodePath, this.root, { lstat: true })
+    const { key: toKey } = this._get(toNodePath, this.root, { lstat: true })
+    const resolvedToPath = toPath(toKey)
     const clone = from && from.clone()
-    this._put(toPath, this.root, { delete: true, lstat: true })
-    this._put(fromPath, this.root, { delete: true, lstat: true })
-    if (from) this._put(toPath, this.root, { ...clone, lstat: true })
+    this._put(toNodePath, this.root, { delete: true, lstat: true })
+    this._put(fromNodePath, this.root, { delete: true, lstat: true })
+    if (from) this._put(resolvedToPath, this.root, { ...clone, lstat: true })
   }
 
   async map (fn) {
@@ -176,7 +187,7 @@ module.exports = class ReferenceTrie {
     const key = path.join('/')
     const debug = true
 
-    this._put(path, this.root, { ...opts, value, debug })
+    this._put(path, this.root, { ...opts, value, lstat: true, debug })
   }
 
   get (path, opts = {}) {
@@ -186,7 +197,8 @@ module.exports = class ReferenceTrie {
     const key = path.join('/')
     const debug = key === 'dc/bdc/bbb'
 
-    return this._get(path, this.root, { ...opts, debug})
+    const { node } = this._get(path, this.root, { ...opts, debug})
+    return node
   }
 
   delete (path, opts = {}) {
@@ -195,7 +207,7 @@ module.exports = class ReferenceTrie {
     const key = path.join('/')
     const debug = false
 
-    return this._put(path, this.root, { ...opts, delete: true, debug})
+    return this._put(path, this.root, { ...opts, delete: true, lstat: true, debug})
   }
 
   rename (from, to, opts = {}) {
@@ -216,7 +228,7 @@ module.exports = class ReferenceTrie {
     if (linkContains(linkname, target)) return null
 
     this.delete(linkname)
-    return this.put(linknamePath, null, { symlink: { target, absolute }, debug: true })
+    return this.put(linknamePath, null, { symlink: { target, absolute }, lstat: true })
   }
 
   _error (actualKey, expectedKey, actualValue, expectedValue) {

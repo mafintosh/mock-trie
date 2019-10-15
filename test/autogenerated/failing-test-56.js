@@ -8,12 +8,12 @@ async function applyOperations (trie) {
   await trie.put('c','rgbzblnlmz')
 }
 function runTests () {
-  test('trie should return c/bb -> null', async t => {
+  test('trie should return c/bb -> rgbzblnlmz', async t => {
     const trie = await getTrie()
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return c/bb -> null', async t => {
+  test('reference should return c/bb -> rgbzblnlmz', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
@@ -23,7 +23,7 @@ function runTests () {
     const value = (node && node.value) ? node.value.value || node.value : null
 
     // Actually returns rgbzblnlmz
-    t.same(value, null, 'getting c/bb returned null')
+    t.same(value, 'rgbzblnlmz', 'getting c/bb returned rgbzblnlmz')
     t.end()
   }
 }

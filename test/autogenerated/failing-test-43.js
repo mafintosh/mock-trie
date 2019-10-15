@@ -13,14 +13,14 @@ function runTests () {
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return bc/b -> dzqjbhrwle', async t => {
+  test('reference should return bc/b -> dzqjbhrwle', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
 
   async function assertValid (t, trie) {
     const node = await trie.get('bc/b')
-    const value = (node && node.value) ? node.value.value || value : null
+    const value = (node && node.value) ? node.value.value || node.value : null
 
     // Actually returns null
     t.same(value, 'dzqjbhrwle', 'getting bc/b returned dzqjbhrwle')
