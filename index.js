@@ -75,6 +75,7 @@ class PutController {
 
   headKey () {
     if (!this.head || !this.result) return null
+    if (this.i === this.result.hash.length) return this.result.key.toString()
 
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
@@ -82,7 +83,9 @@ class PutController {
     const ri = Math.floor(this.i / 32)
     const ti = Math.floor((this.i + this._o) / 32)
 
-    return r.slice(0, ri).concat(t.slice(ti)).join('/')
+    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
+
+    return res
   }
 
   update () {
@@ -265,7 +268,9 @@ class GetController {
     const ri = Math.floor(this.i / 32)
     const ti = Math.floor((this.i + this._o) / 32)
 
-    return r.slice(0, ri).concat(t.slice(ti)).join('/')
+    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
+
+    return res
   }
 
   update () {
