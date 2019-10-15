@@ -95,7 +95,7 @@ module.exports = class ReferenceTrie {
 
   _get (path, node, opts = {}) {
     if (!Array.isArray(path)) throw new Error('Path must always be an array.')
-    if (!path.length) return node
+    if (!path.length) return node || null
     if (!node) return null
 
     const target = opts.target || path.join('/')
@@ -189,6 +189,7 @@ module.exports = class ReferenceTrie {
   }
 
   rename (from, to, opts = {}) {
+    if (from === to) return
     if (typeof from === 'string') from = toPath(from)
     if (typeof to === 'string') to = toPath(to)
 

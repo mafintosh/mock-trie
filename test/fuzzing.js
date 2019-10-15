@@ -143,6 +143,7 @@ class TrieFuzzer extends FuzzBuzz {
 
   async _shortenTestCase (expectedKey, expectedValue, actualKey, actualValue) {
     this.debug(`attempting to shorten the trace with ${this._shorteningIterations} mutations`)
+    if (!expectedKey) throw new Error('Expected key in reference trie is null')
     var shortestTrace = [ ...this._trace ]
     var numShortenings = 0
     for (let i = 0; i < this._shorteningIterations; i++) {
@@ -153,7 +154,7 @@ class TrieFuzzer extends FuzzBuzz {
       nextTrace.splice(removalIndex, 1)
       await this._executeOps(nextTrace, newTrie, newReference)
       try {
-        await newReference.validatePath(expectedKey || actualKey, newTrie)
+        await newReference.validatePath(expectedKey, newTrie)
       } catch (err) {
         if (!err.mismatch) throw err
         const {
@@ -245,7 +246,7 @@ function run (numTests, numOperations, singleSeed) {
       maxComponentLength: 2,
       maxPathDepth: 5,
       syntheticKeys: 3000,
-      shorteningIterations: 10000,
+      shorteningIterations: 1000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
