@@ -50,7 +50,7 @@ module.exports = class ReferenceTrie {
     if (!next) next = new TrieNode(path[0])
     node.children.set(path[0], next)
 
-    if (next.symlink) {
+    if (next.symlink && !opts.noFollow) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
@@ -105,7 +105,8 @@ module.exports = class ReferenceTrie {
     var next = node.children.get(path[0])
     if (!next) return null
 
-    if (next.symlink) {
+    console.log('opts.noFollow', opts.noFollow)
+    if (next.symlink && !opts.noFollow) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
@@ -113,6 +114,7 @@ module.exports = class ReferenceTrie {
       const resolved = resolveLink(target, key, linkTarget)
 
       return this._get(toPath(resolved), this.root, {
+        ...opts,
         linkDepth: linkDepth + 1,
         target: resolved,
         key: null
@@ -120,6 +122,7 @@ module.exports = class ReferenceTrie {
     }
 
     return this._get(path.slice(1), next, {
+      ...opts,
       linkDepth,
       target,
       key
@@ -127,10 +130,10 @@ module.exports = class ReferenceTrie {
   }
 
   _rename (fromPath, toPath) {
-    const from = this._get(fromPath, this.root)
+    const from = this._get(fromPath, this.root, { noFollow: true })
     const clone = from && from.clone()
-    this._put(toPath, this.root, { delete: true })
-    this._put(fromPath, this.root, { delete: true })
+    this._put(toPath, this.root, { delete: true, noFollow: true })
+    this._put(fromPath, this.root, { delete: true, noFollow: true })
     if (from) this._put(toPath, this.root, clone)
   }
 
