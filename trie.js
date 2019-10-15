@@ -216,6 +216,7 @@ module.exports = class Trie {
   }
 
   rename (from, to) {
+    if (from === to) return
     const f = this._getPutInfo(from, {}, true)
     if (!f) return
     const { node: fromNode, feed: fromFeed } = f
