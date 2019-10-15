@@ -3,27 +3,29 @@ const Trie = require('../../trie')
 const Reference = require('../helpers/reference')
 
 async function applyOperations (trie) {
-  await trie.symlink('/c','b')
-  await trie.put('b/bb/b','zdubguqsyk')
-  await trie.rename('b','b/bb')
+  await trie.symlink('bb','b')
+  await trie.symlink('/d/b/b/c/dd','bb')
+  await trie.rename('b','b/c/bb/bd')
+  await trie.put('b/b/d/d/c','cndqtpqnmi')
+  await trie.rename('b/db/bb/dd/c','d')
 }
 function runTests () {
-  test('trie should return c/bb/b -> null', async t => {
+  test('trie should return b/b/d/d/c -> cndqtpqnmi', async t => {
     const trie = await getTrie()
     await assertValid(t, trie)
   })
 
-  test('reference should return c/bb/b -> null', async t => {
+  test.skip('reference should return b/b/d/d/c -> cndqtpqnmi', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
 
   async function assertValid (t, trie) {
-    const node = await trie.get('c/bb/b')
+    const node = await trie.get('b/b/d/d/c')
     const value = (node && node.value) ? node.value.value || node.value : null
 
-    // Actually returns zdubguqsyk
-    t.same(value, null, 'getting c/bb/b returned null')
+    // Actually returns null
+    t.same(value, 'cndqtpqnmi', 'getting b/b/d/d/c returned cndqtpqnmi')
     t.end()
   }
 }

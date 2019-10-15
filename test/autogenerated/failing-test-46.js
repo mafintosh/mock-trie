@@ -20,7 +20,7 @@ function runTests () {
 
   async function assertValid (t, trie) {
     const node = await trie.get('cd/c/dd')
-    const value = (node && node.value) ? node.value.value : null
+    const value = (node && node.value) ? node.value.value || node.value : null
 
     // Actually returns null
     t.same(value, 'ixhpyqxvib', 'getting cd/c/dd returned ixhpyqxvib')
@@ -30,13 +30,13 @@ function runTests () {
 
 async function getTrie () {
   const trie = new Trie()
-  applyOperations(trie)
+  await applyOperations(trie)
   return trie
 }
 
 async function getReference () {
   const reference = new Reference()
-  applyOperations(reference)
+  await applyOperations(reference)
   return reference
 }
 

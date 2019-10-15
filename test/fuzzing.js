@@ -146,15 +146,20 @@ class TrieFuzzer extends FuzzBuzz {
   async _shortenTestCase (expectedKey, expectedValue, actualKey, actualValue) {
     this.debug(`attempting to shorten the trace with ${this._shorteningIterations} mutations`)
     if (!expectedKey) throw new Error('Expected key in reference trie is null')
+
     var shortestTrace = [ ...this._trace ]
     var numShortenings = 0
+
     for (let i = 0; i < this._shorteningIterations; i++) {
       const newTrie = new Trie()
       const newReference = new ReferenceTrie()
       const removalIndex = this.randomInt(shortestTrace.length)
+
       const nextTrace = [ ...shortestTrace ]
       nextTrace.splice(removalIndex, 1)
+
       await this._executeOps(nextTrace, newTrie, newReference)
+
       try {
         await newReference.validatePath(expectedKey, newTrie)
       } catch (err) {
@@ -167,6 +172,7 @@ class TrieFuzzer extends FuzzBuzz {
         } = err.mismatch
         if (actualKey === newActualKey && expectedKey === newExpectedKey &&
             expectedValue === newExpectedValue && actualValue === newActualValue) {
+          console.log('shortening trace with actualValue:', actualValue, 'newActualValue:', newActualValue, 'expectedValue:', expectedValue, 'newExpectedValue:', newExpectedValue)
           shortestTrace = nextTrace
           numShortenings++
         }
@@ -179,7 +185,7 @@ class TrieFuzzer extends FuzzBuzz {
   _generateTestCase (trace, expectedKey, expectedValue, actualKey, actualValue) {
     const replacements = new Map([
       ['operations', trace.map(t => `  await trie.${t.type}(${t.args.map(a => `'${a}'`).join(',')})`).join('\n')],
-      ['expectedKey', expectedKey || actualKey],
+      ['expectedKey', expectedKey],
       ['expectedValue', expectedValue],
       ['expectedValueArg', expectedValue ? `'${expectedValue}'` : null],
       ['actualValue', actualValue]

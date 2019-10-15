@@ -30,13 +30,13 @@ function runTests () {
 
 async function getTrie () {
   const trie = new Trie()
-  applyOperations(trie)
+  await applyOperations(trie)
   return trie
 }
 
 async function getReference () {
   const reference = new Reference()
-  applyOperations(reference)
+  await applyOperations(reference)
   return reference
 }
 
