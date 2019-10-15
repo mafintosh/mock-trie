@@ -47,10 +47,11 @@ module.exports = class ReferenceTrie {
     const linkDepth = opts.linkDepth || 0
 
     var next = node.children.get(path[0])
+    const followLink = !opts.lstat || path.length !== 1
     if (!next) next = new TrieNode(path[0])
     node.children.set(path[0], next)
 
-    if (next.symlink && !opts.noFollow) {
+    if (next.symlink && followLink) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
@@ -65,6 +66,8 @@ module.exports = class ReferenceTrie {
         target: resolved,
         key: null
       })
+    } else if (next.symlink) {
+      return finalize(next)
     }
 
     return this._put(path.slice(1), next, {
@@ -103,9 +106,10 @@ module.exports = class ReferenceTrie {
     const linkDepth = opts.linkDepth || 0
 
     var next = node.children.get(path[0])
+    const followLink = !opts.lstat || path.length !== 1
     if (!next) return null
 
-    if (next.symlink && !opts.noFollow) {
+    if (next.symlink && followLink) {
       if (linkDepth > MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
@@ -118,6 +122,8 @@ module.exports = class ReferenceTrie {
         target: resolved,
         key: null
       })
+    } else if (next.symlink) {
+      return next
     }
 
     return this._get(path.slice(1), next, {
@@ -129,11 +135,13 @@ module.exports = class ReferenceTrie {
   }
 
   _rename (fromPath, toPath) {
-    const from = this._get(fromPath, this.root, { noFollow: true })
+    const from = this._get(fromPath, this.root, { lstat: true })
+    if (from && from.symlink) {
+    }
     const clone = from && from.clone()
-    this._put(toPath, this.root, { delete: true, noFollow: true })
-    this._put(fromPath, this.root, { delete: true, noFollow: true })
-    if (from) this._put(toPath, this.root, clone)
+    this._put(toPath, this.root, { delete: true, lstat: true })
+    this._put(fromPath, this.root, { delete: true, lstat: true })
+    if (from) this._put(toPath, this.root, { ...clone, lstat: true })
   }
 
   async map (fn) {
