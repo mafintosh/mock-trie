@@ -23,7 +23,6 @@ tape('rename to longer path', function (assert) {
   t.put('a/b', 'a/b')
   t.rename('a', 'c/d')
   t.put('c/d/c', 'c/d/c')
-  console.log('t:', t)
 
   assert.same(t.get('c/d/c').value.value, 'c/d/c')
   assert.same(t.get('c/d/b').value.value, 'a/b')
