@@ -225,7 +225,7 @@ module.exports = class Trie {
     const f = this._getPutInfo(from, {}, true)
     if (!f) return
     const { node: fromNode, feed: fromFeed } = f
-    this._put(from, { value: from, deletion: true })
+    this._put(fromNode.key.toString(), { value: from, deletion: true })
     const t = this._getPutInfo(to, {}, false)
     if (!t) {
       this.feed.data.pop()
