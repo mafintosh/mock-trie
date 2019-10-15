@@ -6,7 +6,6 @@ async function applyOperations (trie) {
   await trie.symlink('/b','d/d/bc/c')
   await trie.put('b','hdtrnmcxtt')
   await trie.rename('d','c/c')
-  console.log(trie)
 }
 function runTests () {
   test('trie should return c/c/d/bc/c -> hdtrnmcxtt', async t => {

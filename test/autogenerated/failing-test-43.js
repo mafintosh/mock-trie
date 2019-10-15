@@ -5,9 +5,7 @@ const Reference = require('../helpers/reference')
 async function applyOperations (trie) {
   await trie.put('b/b/b','dzqjbhrwle')
   await trie.rename('b/b','bc')
-  global.debug = true
   await trie.put('bc/cb/bb','tuqiycoujz')
-  console.log(trie)
 }
 function runTests () {
   test('trie should return bc/b -> dzqjbhrwle', async t => {
