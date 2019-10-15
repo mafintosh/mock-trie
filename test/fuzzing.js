@@ -245,7 +245,7 @@ function run (numTests, numOperations, singleSeed) {
       maxComponentLength: 2,
       maxPathDepth: 5,
       syntheticKeys: 3000,
-      shorteningIterations: 1000,
+      shorteningIterations: 10000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
@@ -255,7 +255,7 @@ function run (numTests, numOperations, singleSeed) {
 }
 
 //run(6000, 15)
-run(1000, 15, 271)
+run(1000, 15, 469)
 
 async function writeTestCase (testCase) {
   return new Promise((resolve, reject) => {
