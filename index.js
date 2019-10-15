@@ -139,7 +139,7 @@ class PutController {
           this._link(i, k, headLink[k], -this.head.trieObject.offset(i, k))
         }
         // preserve explicit link set by rename
-        if (val === 4 && headLink[4] && headVal === 4) {
+        if (val === 4 && headLink[4] && headVal === 4 && this.renaming) {
           this._link(i, 4, headLink[4], -this.head.trieObject.offset(i, 4))
         }
       }
