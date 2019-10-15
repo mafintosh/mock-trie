@@ -158,7 +158,7 @@ module.exports = class Trie {
           return c.getSeq(node.seq - 1)
         } else if (v.symlink && shouldFollowLink(node.key, Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
           const key = c.headKey() // head === node
-          if (target === key && !c.renaming) return node
+          if (target === key) return node
           const resolved = resolveLink(target, key, v.symlink)
           prev = Infinity
           c.reset()
@@ -225,8 +225,12 @@ module.exports = class Trie {
     const f = this._getPutInfo(from, {}, true)
     if (!f) return
     const { node: fromNode, feed: fromFeed } = f
+
+    const resolve = this._getPutInfo(to, {}, false)
+    if (!resolve) return
+
     this._put(fromNode.key.toString(), { value: from, deletion: true })
-    const t = this._getPutInfo(to, {}, false)
+    const t = this._getPutInfo(resolve.node.key.toString(), {}, false)
     if (!t) {
       this.feed.data.pop()
       return
