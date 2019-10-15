@@ -6,7 +6,6 @@ async function applyOperations (trie) {
   await trie.rename('c/b/d/d','d/b/c/b/db')
   await trie.rename('c/b/d/d','b')
   await trie.put('b','dvsjpfispt')
-  console.log(trie)
 }
 function runTests () {
   test('trie should return b -> dvsjpfispt', async t => {

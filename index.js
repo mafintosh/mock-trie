@@ -102,6 +102,7 @@ class PutController {
   }
 
   _link (i, val, seq, offset) {
+    // if (global.debug) console.log('linking') i, val, seq, offset)
     const x = i
     if (!offset) offset = 0
     offset *= 32
@@ -128,19 +129,20 @@ class PutController {
       if (!this.head) break
 
       const i = this.i
-      const headVal = this.head.hash.get(i)
-      const headLink = i < this.head.trie.length ? this.head.trie[i] : null
+      const j = this.i - this._o
+      const headVal = this.head.hash.get(j)
+      const headLink = j < this.head.trie.length ? this.head.trie[j] : null
       const val = this.target.hash.get(this.i)
 
       // copy over existing trie links
       if (headLink) {
         for (let k = 0; k < headLink.length; k++) {
           if (k === val || !headLink[k]) continue // we are closest
-          this._link(i, k, headLink[k], -this.head.trieObject.offset(i, k))
+          this._link(i, k, headLink[k], -this.head.trieObject.offset(j, k))
         }
         // preserve explicit link set by rename
         if (val === 4 && headLink[4] && headVal === 4 && this.renaming) {
-          this._link(i, 4, headLink[4], -this.head.trieObject.offset(i, 4))
+          this._link(i, 4, headLink[4], -this.head.trieObject.offset(j, 4))
         }
       }
 
@@ -148,6 +150,7 @@ class PutController {
 
       // link the head
       if (!this.handlers.onlinkclosest || this.handlers.onlinkclosest(this.head)) {
+        // if (global.debug) console.log('link closest', this.head, this._o, i, headVal)
         this._link(i, headVal, this.head.seq)
       }
 
@@ -162,6 +165,7 @@ class PutController {
       const offset = this.head.trieObject.offset(i, val)
       if (offset) {
         this._o = -32 * offset
+        // console.log('load ofset', this._o, offset)
         this.i--
       }
       this.head = this.getSeq(seq)
@@ -180,7 +184,7 @@ class PutController {
         return this._update()
       }
     }
-
+// console.log('??', this.head)
     if (this.head && this.head.key.equals(this.target.key)) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return this.head
@@ -274,13 +278,13 @@ class GetController {
       }
 
       if (!this.head) break
-
       const val = this.target.hash.get(this.i)
+// console.log('???', this.i, val, this.head, this.target)
       const j = this.j = this.i + this._o
       if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
         continue
       }
-
+// console.log('branch', this.i)
       if (j >= this.head.trie.length) break
 
       const link = this.head.trie[j]
@@ -306,6 +310,7 @@ class GetController {
         continue
       }
     }
+// console.log('found', this.head, this.i)
 
     if (this.handlers.onclosest) {
       this.head = this.handlers.onclosest(this.head)
@@ -314,7 +319,7 @@ class GetController {
         return this.update()
       }
     }
-
+// console.log('fin?', this.i, this.target.hash.length, !!this.head, this.headKey(), this.head.key.toString(), this._o)
     if (this.head && this.i === this.target.hash.length) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return { node: this.head, feed: this.feed }
@@ -506,7 +511,7 @@ function printNode (node, indent, opts) {
 
   return indent + 'Node {\n'
     + indent + '  seq: ' + node.seq + '\n'
-    + indent + '  hash: ' + h + '\n'
+    + indent + '  hash: ' + h.replace(/(.{32})/g, '$1 ') + '\n'
     + indent + '  key: ' + node.key.toString() + '\n'
     + indent + '  value: ' + (node.value && JSON.stringify(node.value)) + '\n'
     + indent + '  trie:\n'

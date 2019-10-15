@@ -143,6 +143,7 @@ module.exports = class Trie {
 
         const v = JSON.parse(node.value)
         const target = c.result.key.toString()
+    // if (global.debug) console.log('put closest value', v)
 
         // 1) Check that you match the symlink/rename
         // 2) Rename to current target resolved to symlink/rename
