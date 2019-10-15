@@ -205,6 +205,8 @@ function run (numTests, numOperations, singleSeed) {
     try {
       if (!singleSeed) {
         for (let i = 0; i < numTests; i++) {
+          // TODO: Adding this slight delay prevents the event loop from saturating and allows us to exit with Ctrl+c
+          await new Promise(resolve => setImmediate(resolve))
           await fuzz(i)
         }
       } else {
@@ -267,10 +269,3 @@ function randomString (alphabet, generator, length) {
   }
   return s
 }
-
-process.on('SIGINT', () => {
-  process.exit(1)
-})
-process.on('SIGTERM', () => {
-  process.exit(1)
-})
