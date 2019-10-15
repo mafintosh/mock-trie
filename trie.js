@@ -238,6 +238,7 @@ module.exports = class Trie {
     }
 
     const { node: toNode, feed: toFeed } = t
+
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
 
@@ -245,6 +246,12 @@ module.exports = class Trie {
       const i = fromNode.hash.length - 1
       if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
         fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
+      }
+    }
+    let value = null
+    if (fromNode && fromNode.head && JSON.parse(fromNode.head.value).symlink) {
+      if (fromNode.headKey === fromNode.key.toString()) {
+        value = JSON.parse(fromNode.head.value)
       }
     }
 
@@ -260,7 +267,7 @@ module.exports = class Trie {
     const { deflated } =  fromTrie.concat(toTrie).finalise()
     const node = {
       key: toNode.key,
-      value: JSON.stringify({ rename: fromNode.key.toString() }),
+      value: JSON.stringify(value || { rename: fromNode.key.toString() }),
       trie: deflated
     }
 

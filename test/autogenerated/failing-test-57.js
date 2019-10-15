@@ -4,8 +4,8 @@ const Reference = require('../helpers/reference')
 
 async function applyOperations (trie) {
   await trie.symlink('/c','b')
-  await trie.rename('b','b/bb')
-  await trie.put('c/bb/bd/bd/d','ufjchrqdqb')
+  await trie.rename('b','b/bb') // c/bb -> /c
+  await trie.put('c/bb/bd/bd/d','ufjchrqdqb') // c/bd/bd/d
 }
 function runTests () {
   test('trie should return c/bd/bd/d -> ufjchrqdqb', async t => {

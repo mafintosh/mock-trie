@@ -74,6 +74,8 @@ class PutController {
   }
 
   headKey () {
+    if (!this.head || !this.result) return null
+
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
@@ -95,7 +97,8 @@ class PutController {
       trie: deflated,
       hash: this.target.hash,
       trieBuilder: this.trieBuilder,
-      head: this.head
+      head: this.head,
+      headKey: this.headKey()
     }
 
     return { node, feed: this.feed }
@@ -291,19 +294,21 @@ class GetController {
       if (!link) break
 
       let seq = link[val]
-      if (!seq) {
-        if (link[4]) {
-          // TODO: try differnet optimisations here once its stable
-          // in case of a symlink that itself is renamed there is a special case where we need
-          // to follow the termination node always. there is prob some fancy things
-          // we can do to avoid this "hack"
-          val = 4
-          seq = link[val]
-          this.i--
-        } else {
-          break
-        }
-      }
+      if (!seq) break
+      // Below should not be needed since the last 57 fix
+      // if (!seq) {
+      //   if (link[4]) {
+      //     // TODO: try differnet optimisations here once its stable
+      //     // in case of a symlink that itself is renamed there is a special case where we need
+      //     // to follow the termination node always. there is prob some fancy things
+      //     // we can do to avoid this "hack"
+      //     val = 4
+      //     seq = link[val]
+      //     this.i--
+      //   } else {
+      //     break
+      //   }
+      // }
 
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
