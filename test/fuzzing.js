@@ -14,6 +14,8 @@ const KEY_CHARACTERS = 'abcd'
 const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
 const SCAFFOLD = fs.readFileSync(SCAFFOLD_PATH, { encoding: 'utf8' })
 
+const argv = require('minimist')(process.argv.slice(2))
+
 class TrieFuzzer extends FuzzBuzz {
   constructor (opts) {
     super(opts)
@@ -255,8 +257,10 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-//run(6000, 15)
-run(1000, 15, 469)
+const iterations = argv.iterations || argv.i || 6000
+const operations = argv.operations || argv.o || 15
+const seed = argv.seed || argv.s || null
+run(iterations, operations, seed)
 
 async function writeTestCase (testCase) {
   return new Promise((resolve, reject) => {
