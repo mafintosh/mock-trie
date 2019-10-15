@@ -216,12 +216,13 @@ module.exports = class ReferenceTrie {
   }
 
   _validate (path, expectedNode, actualNode) {
+    const expectedKey = path
     const expectedValue = expectedNode ? expectedNode.value : null
     const actualValue = actualNode ? actualNode.value.value : null
     if (!expectedValue && !actualValue) return
 
     if (!actualValue) return this._error(null, path, null, expectedValue)
-    if (!expectedValue) return this._error(actualNode.key, null, actualValue, null)
+    if (!expectedValue) return this._error(actualNode.key, path, actualValue, null)
 
     if (!actualValue && !expectedValue) return
     if (!expectedValue) return this._error(actualNode.key, path, actualValue, null)
