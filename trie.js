@@ -132,6 +132,10 @@ module.exports = class Trie {
         // }
         return node
       },
+      onlinkclosest (node) {
+        if (!isDeleteish(node)) return true
+        return node.trie.length > c.i
+      },
       onclosest (node) {
         if (!node) return node
         if (node.seq >= prev) return node
@@ -231,7 +235,10 @@ module.exports = class Trie {
     const toHash = new Hash(toNode.key)
 
     if (fromNode && fromNode.head && fromNode.head.key.equals(fromNode.key)) {
-      fromNode.trieBuilder.link(fromNode.hash.length - 1, 4, fromNode.head.seq)
+      const i = fromNode.hash.length - 1
+      if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
+        fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
+      }
     }
 
     const fromTrie = fromNode.trieBuilder
@@ -274,4 +281,9 @@ module.exports = class Trie {
            nodes +
            indent + ']'
   }
+}
+
+function isDeleteish (node) {
+  const v = JSON.parse(node.value)
+  return v.rename || v.deletion
 }

@@ -147,7 +147,9 @@ class PutController {
       if (val === headVal) continue
 
       // link the head
-      this._link(i, headVal, this.head.seq)
+      if (!this.handlers.onlinkclosest || this.handlers.onlinkclosest(this.head)) {
+        this._link(i, headVal, this.head.seq)
+      }
 
       if (i >= this.head.trie.length) break
 
