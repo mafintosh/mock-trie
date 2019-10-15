@@ -278,7 +278,7 @@ class GetController {
       }
 
       if (!this.head) break
-      const val = this.target.hash.get(this.i)
+      let val = this.target.hash.get(this.i)
 // console.log('???', this.i, val, this.head, this.target)
       const j = this.j = this.i + this._o
       if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
@@ -290,8 +290,20 @@ class GetController {
       const link = this.head.trie[j]
       if (!link) break
 
-      const seq = link[val]
-      if (!seq) break
+      let seq = link[val]
+      if (!seq) {
+        if (link[4]) {
+          // TODO: try differnet optimisations here once its stable
+          // in case of a symlink that itself is renamed there is a special case where we need
+          // to follow the termination node always. there is prob some fancy things
+          // we can do to avoid this "hack"
+          val = 4
+          seq = link[val]
+          this.i--
+        } else {
+          break
+        }
+      }
 
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
