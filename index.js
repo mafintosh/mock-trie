@@ -138,6 +138,10 @@ class PutController {
           if (k === val || !headLink[k]) continue // we are closest
           this._link(i, k, headLink[k], -this.head.trieObject.offset(i, k))
         }
+        // preserve explicit link set by rename
+        if (val === 4 && headLink[4] && headVal === 4) {
+          this._link(i, 4, headLink[4], -this.head.trieObject.offset(i, 4))
+        }
       }
 
       if (val === headVal) continue
@@ -270,9 +274,7 @@ class GetController {
       if (!this.head) break
 
       const val = this.target.hash.get(this.i)
-    // console.log('target is', this.i, val, this.target.key.toString())
       const j = this.j = this.i + this._o
-    // console.log('head is', j, this.head.hash.get(j), this.head.key.toString())
       if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
         continue
       }
