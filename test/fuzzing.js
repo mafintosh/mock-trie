@@ -141,7 +141,7 @@ class TrieFuzzer extends FuzzBuzz {
     }
   }
 
-  async _shortenTestCase (expectedKey, expectedValue, actualValue) {
+  async _shortenTestCase (expectedKey, expectedValue, actualKey, actualValue) {
     this.debug(`attempting to shorten the trace with ${this._shorteningIterations} mutations`)
     var shortestTrace = [ ...this._trace ]
     var numShortenings = 0
@@ -153,7 +153,7 @@ class TrieFuzzer extends FuzzBuzz {
       nextTrace.splice(removalIndex, 1)
       await this._executeOps(nextTrace, newTrie, newReference)
       try {
-        await newReference.validatePath(expectedKey, newTrie)
+        await newReference.validatePath(expectedKey || actualKey, newTrie)
       } catch (err) {
         if (!err.mismatch) throw err
         const { actualValue: newActualValue, expectedKey: newExpectedKey, expectedValue: newExpectedValue } = err.mismatch
@@ -167,7 +167,7 @@ class TrieFuzzer extends FuzzBuzz {
     return shortestTrace
   }
 
-  _generateTestCase (trace, expectedKey, expectedValue, actualValue) {
+  _generateTestCase (trace, expectedKey, expectedValue, actualKey, actualValue) {
     const replacements = new Map([
       ['operations', trace.map(t => `  await trie.${t.type}(${t.args.map(a => `'${a}'`).join(',')})`).join('\n')],
       ['expectedKey', expectedKey],
@@ -189,10 +189,10 @@ class TrieFuzzer extends FuzzBuzz {
       await this._validateWithSyntheticKeys()
     } catch (err) {
       if (!err.mismatch) throw err
-      const { key, actualValue, expectedKey, expectedValue } = err.mismatch
+      const { actualKey, actualValue, expectedKey, expectedValue } = err.mismatch
 
-      const minimalTrace = await this._shortenTestCase(expectedKey, expectedValue, actualValue)
-      err.testCase = this._generateTestCase(minimalTrace, expectedKey, expectedValue, actualValue)
+      const minimalTrace = await this._shortenTestCase(expectedKey, expectedValue, actualKey, actualValue)
+      err.testCase = this._generateTestCase(minimalTrace, expectedKey, expectedValue, actualKey, actualValue)
 
       throw err
     }
@@ -214,6 +214,7 @@ function run (numTests, numOperations, singleSeed) {
       }
     } catch (err) {
       error = err
+      t.fail(err)
       if (error.testCase) {
         console.error('\nFailing Test:\n')
         console.error(err.testCase + '\n')
