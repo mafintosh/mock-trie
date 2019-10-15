@@ -225,6 +225,7 @@ module.exports = class Trie {
       this.feed.data.pop()
       return
     }
+
     const { node: toNode, feed: toFeed } = t
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
@@ -245,7 +246,7 @@ module.exports = class Trie {
     const { deflated } =  fromTrie.concat(toTrie).finalise()
     const node = {
       key: toNode.key,
-      value: JSON.stringify({ rename: from }),
+      value: JSON.stringify({ rename: fromNode.key.toString() }),
       trie: deflated
     }
 
