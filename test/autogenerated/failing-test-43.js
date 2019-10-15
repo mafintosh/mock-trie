@@ -42,10 +42,11 @@ async function getReference () {
   return reference
 }
 
-if (require.main === module) {
+if (require.main) {
   runTests()
 } else {
   module.exports = {
+    runTests,
     getTrie,
     getReference
   }

@@ -6,5 +6,6 @@ const TEST_DIR = p.join(__dirname, DIRNAME)
 
 const tests = fs.readdirSync(TEST_DIR)
 for (const test of tests) {
-  require(p.join(__dirname, DIRNAME, test))
+  const module = require(p.join(__dirname, DIRNAME, test))
+  if (module.runTests) module.runTests()
 }

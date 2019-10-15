@@ -156,8 +156,14 @@ class TrieFuzzer extends FuzzBuzz {
         await newReference.validatePath(expectedKey || actualKey, newTrie)
       } catch (err) {
         if (!err.mismatch) throw err
-        const { actualValue: newActualValue, expectedKey: newExpectedKey, expectedValue: newExpectedValue } = err.mismatch
-        if (expectedKey === newExpectedKey && expectedValue === newExpectedValue && actualValue === newActualValue) {
+        const {
+          actualKey: newActualKey,
+          actualValue: newActualValue,
+          expectedKey: newExpectedKey,
+          expectedValue: newExpectedValue
+        } = err.mismatch
+        if (actualKey === newActualKey && expectedKey === newExpectedKey &&
+            expectedValue === newExpectedValue && actualValue === newActualValue) {
           shortestTrace = nextTrace
           numShortenings++
         }
@@ -170,7 +176,7 @@ class TrieFuzzer extends FuzzBuzz {
   _generateTestCase (trace, expectedKey, expectedValue, actualKey, actualValue) {
     const replacements = new Map([
       ['operations', trace.map(t => `  await trie.${t.type}(${t.args.map(a => `'${a}'`).join(',')})`).join('\n')],
-      ['expectedKey', expectedKey],
+      ['expectedKey', expectedKey || actualKey],
       ['expectedValue', expectedValue],
       ['expectedValueArg', expectedValue ? `'${expectedValue}'` : null],
       ['actualValue', actualValue]
@@ -248,8 +254,8 @@ function run (numTests, numOperations, singleSeed) {
   }
 }
 
-run(6000, 15)
-// run(1000, 3, 2322)
+//run(6000, 15)
+run(1000, 15, 271)
 
 async function writeTestCase (testCase) {
   return new Promise((resolve, reject) => {
