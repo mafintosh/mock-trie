@@ -115,7 +115,10 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
 
     if (next.symlink) {
-      if (linkDepth > MAX_SYMLINK_DEPTH) return finalize(null)
+      if (linkDepth > MAX_SYMLINK_DEPTH) {
+        key = null
+        return finalize(null) 
+      }
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
@@ -137,6 +140,7 @@ module.exports = class ReferenceTrie {
     })
 
     function finalize (node) {
+      if (key === null) return { node: null, key: null}
       const finalKey = path.length ? key + '/' + path.slice(1).join('/') : key
       return {
         node: node || null,
@@ -148,6 +152,7 @@ module.exports = class ReferenceTrie {
   _rename (fromNodePath, toNodePath) {
     const { node: from, key: fromKey } = this._get(fromNodePath, this.root, { lstat: true })
     const { key: toKey } = this._get(toNodePath, this.root, { lstat: true })
+    if (toKey === null) return
 
     const resolvedToPath = toPath(toKey)
     const resolvedFromPath = toPath(fromKey)
