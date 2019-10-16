@@ -159,13 +159,13 @@ module.exports = class Trie {
         // 2) Rename to current target resolved to symlink/rename
         if (v.rename)  {
           if (c.i >= node.hash.length) {
-            const key = redirectTo(c.target, node, v.rename)
-            const prev = c.target.hash.length
-            c._trieOffset = Math.max(c.i, c._trieOffset)
-            c.setTarget(key)
+            // const key = redirectTo(c.target, node, v.rename)
+            // const prev = c.target.hash.length
+            // c._trieOffset = Math.max(c.i, c._trieOffset)
+            // c.setTarget(key)
           }
           // c.setOffset((prev - c.target.hash.length) / 32)
-          return c.getSeq(node.seq - 1)
+          return null // c.getSeq(node.seq - 1)
         } else if (v.symlink && shouldFollowLink(node.key, Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
 
           const key = c.headKey() // head === node
