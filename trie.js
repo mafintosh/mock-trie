@@ -32,8 +32,15 @@ module.exports = class Trie {
 
       onclosest (node) {
         if (!node) return null
-        if (node.seq >= prev) return node
+        if (node.seq >= prev) {
+          return node
+        }
+        // if (node.visited) {
+        //   console.log('??')
+        //   return null
+        // }
         prev = node.seq
+        // node.visited = true
 // console.log('closett', node, c.i, node.hash.length, c.target.key.toString())
         const val = JSON.parse(node.value)
 
@@ -44,8 +51,11 @@ module.exports = class Trie {
           // console.log('node', node.key.toString())
           // console.log('rename', val.rename.toString())
           // console.log('recirect!', key)
-          c.setTarget(key)
-          return c.getSeq(node.seq - 1) // TODO: just check that we do not visit the same node twice instead
+          // c.setTarget(key)
+          // console.log('set target', key)
+          // c.i = val.rename.split('/').length * 32
+          // console.log('c.i', c.i, key)
+          return null //node // TODO: just check that we do not visit the same node twice instead
         }
 
         if (val.mount) { // and validate prefix
@@ -134,7 +144,7 @@ module.exports = class Trie {
       },
       onlinkclosest (node) {
         if (!isDeleteish(node)) return true
-        return node.trie.length > c.i
+        return node.trie.length > c.j
       },
       onclosest (node) {
         if (!node) return node

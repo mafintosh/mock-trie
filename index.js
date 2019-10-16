@@ -9,6 +9,7 @@ class PutController {
     this.feed = null
     this.target = null
     this.i = 0
+    this.j = 0
     this.head = null
     this.trieBuilder = new TrieBuilder()
     this.value = null
@@ -52,6 +53,7 @@ class PutController {
     this.i = 0
     this._reset = true
     this._o = 0
+    this.j = 0
     return key
   }
 
@@ -135,7 +137,7 @@ class PutController {
       if (!this.head) break
 
       const i = this.i
-      const j = this.i - this._o
+      const j = this.j = this.i - this._o
       const headVal = this.head.hash.get(j)
       const headLink = j < this.head.trie.length ? this.head.trie[j] : null
       const val = this.target.hash.get(this.i)
@@ -263,9 +265,10 @@ class GetController {
   }
 
   headKey () {
+    // console.log('???', this.i)
     if (this.i === this.target.hash.length) return this.result.key.toString()
 
-    const r = this.result.key.toString().split('/')
+    const r = this.target.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
     const ri = Math.floor(this.i / 32)
