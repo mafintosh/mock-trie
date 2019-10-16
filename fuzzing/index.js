@@ -6,13 +6,14 @@ const SandboxPath = require('sandbox-path')
 const FuzzBuzz = require('fuzzbuzz')
 
 const Trie = require('../trie')
-const ReferenceTrie = require('./helpers/reference')
+const ReferenceTrie = require('./reference')
 const path = new SandboxPath('/')
 
-const SCAFFOLD_PATH = p.join(__dirname, 'helpers', 'scaffold.js.template')
+const SCAFFOLD_PATH = p.join(__dirname, 'scaffold.js.template')
+const SCAFFOLD = fs.readFileSync(SCAFFOLD_PATH, { encoding: 'utf8' })
+
 const KEY_CHARACTERS = 'abcd'
 const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
-const SCAFFOLD = fs.readFileSync(SCAFFOLD_PATH, { encoding: 'utf8' })
 
 const argv = require('minimist')(process.argv.slice(2))
 

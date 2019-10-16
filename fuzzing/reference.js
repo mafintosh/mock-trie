@@ -3,7 +3,7 @@ const util = require('util')
 const {
   resolveLink,
   linkContains
-} = require('../../lib/paths')
+} = require('../lib/paths')
 
 const MAX_SYMLINK_DEPTH = 20
 
