@@ -152,15 +152,13 @@ module.exports = class ReferenceTrie {
   _rename (fromNodePath, toNodePath) {
     const { node: from, key: fromKey } = this._get(fromNodePath, this.root, { lstat: true })
     const { key: toKey } = this._get(toNodePath, this.root, { lstat: true })
-
-    const resolvedToPath = toKey && toPath(toKey)
-    const resolvedFromPath = fromKey && toPath(fromKey)
-    const clone = from && from.clone()
-
-    // Always implicitly delete the target, even if we hit circular links
-    if (resolvedToPath) this._put(resolvedToPath, this.root, { delete: true, lstat: true })
     if (toKey === null || fromKey === null) return
 
+    const resolvedToPath = toPath(toKey)
+    const resolvedFromPath = toPath(fromKey)
+    const clone = from && from.clone()
+
+    this._put(resolvedToPath, this.root, { delete: true, lstat: true })
     this._put(resolvedFromPath, this.root, { delete: true, lstat: true })
     if (from) this._put(resolvedToPath, this.root, { ...clone, lstat: true })
   }
