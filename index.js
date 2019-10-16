@@ -174,11 +174,11 @@ class PutController {
       if (offset) {
         this._o = -32 * offset
         // console.log('load ofset', this._o, offset)
-        this.i--
+        // this.i--
       }
 
       this.head = this.getSeq(seq)
-// if (global.debug) console.log('head is now', this.head.seq)
+
       if (this._reset) {
         this._reset = false
         this.i--
@@ -193,7 +193,7 @@ class PutController {
         return this._update()
       }
     }
-// console.log('??', this.head)
+
     if (this.head && this.head.key.equals(this.target.key)) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return this.head
