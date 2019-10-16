@@ -3,25 +3,28 @@ const Trie = require('../../../trie')
 const Reference = require('../../helpers/reference')
 
 async function applyOperations (trie) {
-{{ operations }}
+  await trie.symlink('../d','b')
+  await trie.put('d','uhfehpfhhl')
+  await trie.rename('b','c/c/b/c')
+  await trie.rename('d','db/b/c/b')
 }
 function runTests () {
-  test('trie should return {{ expectedKey }} -> {{ expectedValue }}', async t => {
+  test('trie should return db/b/c/b -> uhfehpfhhl', async t => {
     const trie = await getTrie()
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return {{ expectedKey }} -> {{ expectedValue }}', async t => {
+  test('reference should return db/b/c/b -> uhfehpfhhl', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
 
   async function assertValid (t, trie) {
-    const node = await trie.get('{{ expectedKey }}')
+    const node = await trie.get('db/b/c/b')
     const value = (node && node.value) ? node.value.value || node.value : null
 
-    // Actually returns {{ actualValue }}
-    t.same(value, {{ expectedValueArg }}, 'getting {{ expectedKey }} returned {{ expectedValue }}')
+    // Actually returns null
+    t.same(value, 'uhfehpfhhl', 'getting db/b/c/b returned uhfehpfhhl')
     t.end()
   }
 }
