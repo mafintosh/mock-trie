@@ -172,7 +172,7 @@ class PutController {
 
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
-        this._o = -32 * offset
+        this._o += -32 * offset
         // console.log('load ofset', this._o, offset)
         // this.i--
       }
@@ -266,6 +266,7 @@ class GetController {
 
   headKey () {
     if (this.i === this.target.hash.length) return this.result.key.toString()
+    if (this.head === null) return null
 
     const r = this.target.key.toString().split('/')
     const t = this.head.key.toString().split('/')
@@ -292,8 +293,8 @@ class GetController {
 
       if (!this.head) break
       let val = this.target.hash.get(this.i)
-// console.log('???', this.i, val, this.head, this.target)
       const j = this.j = this.i + this._o
+// console.log('???', this.i, j)
       if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
         continue
       }
@@ -346,7 +347,7 @@ class GetController {
         return this.update()
       }
     }
-// console.log('fin?', this.i, this.target.hash.length, !!this.head, this.headKey(), this.head.key.toString(), this._o)
+// console.log('fin?', this.j, this.i, this.target.hash.length, !!this.head, this.headKey(), this.head.key.toString(), this._o)
     if (this.head && this.i === this.target.hash.length) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return { node: this.head, feed: this.feed }
