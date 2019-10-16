@@ -152,8 +152,8 @@ module.exports = class Trie {
         prev = node.seq
 
         const v = JSON.parse(node.value)
-        const target = c.key()
-    // if (global.debug) console.log('put closest value', v, target, c.key())
+        const target = c.result.key.toString()
+    // if (global.debug) console.log('put closest value', v, target, c.key(), c.target.key.toString())
 
         // 1) Check that you match the symlink/rename
         // 2) Rename to current target resolved to symlink/rename
@@ -166,11 +166,12 @@ module.exports = class Trie {
           }
           // c.setOffset((prev - c.target.hash.length) / 32)
           return null // c.getSeq(node.seq - 1)
-        } else if (v.symlink && shouldFollowLink(node.key, Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
-
+        } else if (v.symlink && shouldFollowLink(c.headKey(), Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
           const key = c.headKey() // head === node
+// if (global.debug) console.log('herhe', key, node.seq, 'target=', target, v.symlink)
           if (target === key) return node
           const resolved = resolveLink(target, key, v.symlink)
+// if (global.debug) console.log('resolved', resolved)
           prev = Infinity
           c.reset()
           c.setKey(resolved)

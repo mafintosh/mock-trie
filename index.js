@@ -109,7 +109,7 @@ class PutController {
   }
 
   _link (i, val, seq, offset) {
-    if (global.debug) console.log('linking', i, val, seq, offset, this._o)
+    // if (global.debug) console.log('linking', i, val, seq, offset, this._o)
     const x = i
     if (!offset) offset = 0
     offset *= 32
@@ -265,7 +265,6 @@ class GetController {
   }
 
   headKey () {
-    // console.log('???', this.i)
     if (this.i === this.target.hash.length) return this.result.key.toString()
 
     const r = this.target.key.toString().split('/')
