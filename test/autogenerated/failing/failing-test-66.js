@@ -3,28 +3,29 @@ const Trie = require('../../../trie')
 const Reference = require('../../../fuzzing/reference')
 
 async function applyOperations (trie) {
-  await trie.symlink('d/bd','b')
-  await trie.symlink('b/d','d')
-  await trie.put('c/c/b/c/d','wdzdsjtobv')
-  await trie.rename('d/bd','c')
+  await trie.put('dd/cd/b/b','khrconhext')
+  await trie.rename('dd','b/b/d')
+  await trie.rename('b/b','d')
+  await trie.put('d/d/b/db','vvdffifehb')
+  await trie.rename('d','bb')
 }
 function runTests () {
-  test('trie should return c/c/b/c/d -> wdzdsjtobv', async t => {
+  test('trie should return bb/d/cd/b/b -> khrconhext', async t => {
     const trie = await getTrie()
     await assertValid(t, trie)
   })
 
-  test('reference should return c/c/b/c/d -> wdzdsjtobv', async t => {
+  test('reference should return bb/d/cd/b/b -> khrconhext', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
 
   async function assertValid (t, trie) {
-    const node = await trie.get('c/c/b/c/d')
+    const node = await trie.get('bb/d/cd/b/b')
     const value = (node && node.value) ? node.value.value || node.value : null
 
-    // Actually returns wdzdsjtobv
-    t.same(value, 'wdzdsjtobv', 'getting c/c/b/c/d returned wdzdsjtobv')
+    // Actually returns null
+    t.same(value, 'khrconhext', 'getting bb/d/cd/b/b returned khrconhext')
     t.end()
   }
 }
