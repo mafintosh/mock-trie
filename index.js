@@ -68,20 +68,19 @@ class PutController {
     const t = this.head.key.toString().split('/')
 
     const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
+    const ti = Math.floor((this.i - this._o) / 32)
 
     return t.slice(0, ti).concat(r.slice(ri)).join('/')
   }
 
   headKey () {
     if (!this.head || !this.result) return null
-    if (this.i === this.result.hash.length) return this.result.key.toString()
 
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
     const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
+    const ti = Math.floor((this.i - this._o) / 32)
 
     const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
 
@@ -262,6 +261,8 @@ class GetController {
   }
 
   headKey () {
+    if (this.i === this.target.hash.length) return this.result.key.toString()
+
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
@@ -332,7 +333,7 @@ class GetController {
         continue
       }
     }
-// console.log('found', this.head, this.i)
+// console.log('found', this.head, this.i, this.head && this.headKey())
 
     if (this.handlers.onclosest) {
       this.head = this.handlers.onclosest(this.head)

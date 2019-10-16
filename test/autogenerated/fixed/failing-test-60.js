@@ -8,8 +8,6 @@ async function applyOperations (trie) {
   await trie.rename('b/d','b') // b/b/c
   // console.log(await trie.get('b/b/c'))
   await trie.rename('b/b/c','bc/cb') // bc/cb
-  console.log(trie)
-
 }
 function runTests () {
   test('trie should return bc/cb -> jegrzceccj', async t => {
