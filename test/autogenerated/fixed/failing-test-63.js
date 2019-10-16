@@ -11,12 +11,12 @@ async function applyOperations (trie) {
   await trie.rename('d','b/c/b')
 }
 function runTests () {
-  test('trie should return d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb -> vbmnbwyfwc', async t => {
+  test('trie should return d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb -> null', async t => {
     const trie = await getTrie()
     await assertValid(t, trie)
   })
 
-  test.skip('reference should return d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb -> vbmnbwyfwc', async t => {
+  test.skip('reference should return d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb -> null', async t => {
     const trie = await getReference()
     await assertValid(t, trie)
   })
@@ -26,7 +26,7 @@ function runTests () {
     const value = (node && node.value) ? node.value.value || node.value : null
 
     // Actually returns null
-    t.same(value, 'vbmnbwyfwc', 'getting d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb returned vbmnbwyfwc')
+    t.same(value, null, 'getting d/c/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/cb/bc/d/c/b/db/d/b/cb returned null')
     t.end()
   }
 }
