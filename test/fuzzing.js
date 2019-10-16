@@ -262,7 +262,7 @@ function run (numTests, numOperations, singleSeed) {
       maxComponentLength: 2,
       maxPathDepth: 5,
       syntheticKeys: 3000,
-      maxShorteningIterations: 1000000,
+      maxShorteningIterations: 10000000,
       numOperations
     }
     if (opts.debug) console.log('fuzzing with options:', opts)
