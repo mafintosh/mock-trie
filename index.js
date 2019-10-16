@@ -107,11 +107,12 @@ class PutController {
   }
 
   _link (i, val, seq, offset) {
-    // if (global.debug) console.log('linking') i, val, seq, offset)
+    if (global.debug) console.log('linking', i, val, seq, offset, this._o)
     const x = i
     if (!offset) offset = 0
     offset *= 32
     offset += this._o
+    // if (global.debug) console.log('offset now', offset)
     // i += this._o
     if (i < this._trieOffset) return
     this._trieOffset = i // hack to not rebuild the trie, todo: better solition
@@ -159,22 +160,23 @@ class PutController {
         this._link(i, headVal, this.head.seq)
       }
 
-      if (i >= this.head.trie.length) break
+      if (j >= this.head.trie.length) break
 
-      const link = this.head.trie[i]
+      const link = this.head.trie[j]
       if (!link) break
 
       const seq = link[val]
       if (!seq) break
 
-      const offset = this.head.trieObject.offset(i, val)
+      const offset = this.head.trieObject.offset(j, val)
       if (offset) {
         this._o = -32 * offset
         // console.log('load ofset', this._o, offset)
         this.i--
       }
-      this.head = this.getSeq(seq)
 
+      this.head = this.getSeq(seq)
+// if (global.debug) console.log('head is now', this.head.seq)
       if (this._reset) {
         this._reset = false
         this.i--
