@@ -109,13 +109,9 @@ class PutController {
   }
 
   _link (i, val, seq, offset) {
-    // if (global.debug) console.log('linking', i, val, seq, offset, this._o)
-    const x = i
     if (!offset) offset = 0
     offset *= 32
     offset += this._o
-    // if (global.debug) console.log('offset now', offset)
-    // i += this._o
     if (i < this._trieOffset) return
     this._trieOffset = i // hack to not rebuild the trie, todo: better solition
     if (this.handlers.onlink && !this.handlers.onlink(i, val, seq)) return
@@ -158,7 +154,6 @@ class PutController {
 
       // link the head
       if (!this.handlers.onlinkclosest || this.handlers.onlinkclosest(this.head)) {
-        // if (global.debug) console.log('link closest', this.head, this._o, i, headVal)
         this._link(i, headVal, this.head.seq)
       }
 
@@ -173,8 +168,6 @@ class PutController {
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
         this._o += -32 * offset
-        // console.log('load ofset', this._o, offset)
-        // this.i--
       }
 
       this.head = this.getSeq(seq)
@@ -292,13 +285,14 @@ class GetController {
       }
 
       if (!this.head) break
+
       let val = this.target.hash.get(this.i)
       const j = this.j = this.i + this._o
-// console.log('???', this.i, j)
+
       if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
         continue
       }
-// console.log('branch', this.i)
+
       if (j >= this.head.trie.length) break
 
       const link = this.head.trie[j]
@@ -306,27 +300,11 @@ class GetController {
 
       let seq = link[val]
       if (!seq) break
-      // Below should not be needed since the last 57 fix
-      // if (!seq) {
-      //   if (link[4]) {
-      //     // TODO: try differnet optimisations here once its stable
-      //     // in case of a symlink that itself is renamed there is a special case where we need
-      //     // to follow the termination node always. there is prob some fancy things
-      //     // we can do to avoid this "hack"
-      //     val = 4
-      //     seq = link[val]
-      //     this.i--
-      //   } else {
-      //     break
-      //   }
-      // }
 
       const offset = this.head.trieObject.offset(j, val)
       if (offset) {
         this._o += 32 * offset
         this._length += this._o
-      } else {
-        // this._o = 0
       }
 
       this.head = this.getSeq(seq)
@@ -338,7 +316,6 @@ class GetController {
         continue
       }
     }
-// console.log('found', this.head, this.i, this.head && this.headKey())
 
     if (this.handlers.onclosest) {
       this.head = this.handlers.onclosest(this.head)
@@ -347,7 +324,7 @@ class GetController {
         return this.update()
       }
     }
-// console.log('fin?', this.j, this.i, this.target.hash.length, !!this.head, this.headKey(), this.head.key.toString(), this._o)
+
     if (this.head && this.i === this.target.hash.length) {
       if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
       return { node: this.head, feed: this.feed }
