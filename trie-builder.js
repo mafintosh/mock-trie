@@ -21,6 +21,13 @@ module.exports = class TrieBuilder {
     }
   }
 
+  isLinking (seq) {
+    for (const [ i, val, _seq ] of this.data) {
+      if (seq === _seq) return true
+    }
+    return false
+  }
+
   slice (start, end) {
     const newTrie = new TrieBuilder()
     end = (end === undefined) ? Infinity : end

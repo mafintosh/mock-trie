@@ -242,6 +242,7 @@ module.exports = class Trie {
     if (!resolve) return
 
     this._put(fromNode.key.toString(), { value: from, deletion: true })
+    const fromSeq = this.feed.length
     const t = this._getPutInfo(resolve.node.key.toString(), {}, false)
     if (!t) {
       this.feed.data.pop()
@@ -275,7 +276,13 @@ module.exports = class Trie {
 
     if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
 
-    const { deflated } =  fromTrie.concat(toTrie).finalise()
+    const finalTrie = fromTrie.concat(toTrie)
+
+    if (!finalTrie.isLinking(fromSeq)) { // optimisation, the fromSeq is not reachable
+      this.feed.data.pop()
+    }
+
+    const { deflated } =  finalTrie.finalise()
     const node = {
       key: toNode.key,
       value: JSON.stringify(value || { rename: fromNode.key.toString() }),
