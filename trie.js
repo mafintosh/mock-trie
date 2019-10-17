@@ -35,27 +35,13 @@ module.exports = class Trie {
         if (node.seq >= prev) {
           return node
         }
-        // if (node.visited) {
-        //   console.log('??')
-        //   return null
-        // }
+
         prev = node.seq
-        // node.visited = true
-// console.log('closett', node, c.i, node.hash.length, c.target.key.toString())
+
         const val = JSON.parse(node.value)
 
         if (val.rename) {
-          const key = redirectTo(c.target, node, val.rename)
-          // const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
-          // console.log('c.target', c.target.key.toString())
-          // console.log('node', node.key.toString())
-          // console.log('rename', val.rename.toString())
-          // console.log('recirect!', key)
-          // c.setTarget(key)
-          // console.log('set target', key)
-          // c.i = val.rename.split('/').length * 32
-          // console.log('c.i', c.i, key)
-          return null //node // TODO: just check that we do not visit the same node twice instead
+          return null
         }
 
         if (val.mount) { // and validate prefix
@@ -75,12 +61,9 @@ module.exports = class Trie {
           const target = c.result.key.toString()
           const linkname = c.headKey() // head === node
 
-          // console.log('IN A SYMLINK, target:', target, 'linkname:', linkname)
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
             const symlink = JSON.parse(node.value).symlink
             const resolved = resolveLink(target, linkname, symlink)
-            // console.log('FOUND SYMLINK:', symlink, 'AT:', linkname, 'TARGET:', target, 'RIGHT KEY?', target.startsWith(linkname))
-            // console.log('  setting target to:', resolved, 'symlink:', symlink)
             prev = Infinity
             c.reset()
             c.setFeed(self.feed)
@@ -126,21 +109,11 @@ module.exports = class Trie {
     let depth = 0
     const isDeletion = val.deletion
 
-    // console.log('before put, trie:', this)
-
     const c = new PutController({
       onlink (i, val, seq) {
         const max = isDeletion ? c.target.hash.length - 1 : Infinity
         if (i >= max) return false
         return true
-      },
-      onnode (node) {
-        // if (val.deletion) {
-        //   // if (node.key.toString().startsWith(key.toString())) {
-        //   //   return null
-        //   // }
-        // }
-        return node
       },
       onlinkclosest (node) {
         if (!isDeleteish(node)) return true
