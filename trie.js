@@ -25,11 +25,6 @@ module.exports = class Trie {
     let prev = Infinity
 
     const c = new GetController({
-      onnode (node) {
-        // console.log('GET NODE:', node, 'TARGET:', c.target)
-        return node
-      },
-
       onclosest (node) {
         if (!node) return null
         if (node.seq >= prev) {
