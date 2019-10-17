@@ -223,56 +223,12 @@ const MAX_SYMLINK_DEPTH = 20
 class IteratorController {
   constructor (handlers) {
     this.handlers = handlers
-    this.feed = null
-    this.i = 0
-    this.head = null
-    this._reset = false
-    this._o = 0
     this.stack = null
-  }
-
-  reset () {
-    this.target = null
-    this.i = 0
-    this.head = null
-    this._reset = true
-    this._o = 0
+    this.feed = null
   }
 
   setFeed (feed) {
     this.feed = feed
-    this.head = null
-    this.i = 0
-    this._reset = true
-    this._o = 0
-  }
-
-  key () {
-    if (!this.result) return this.head.key.toString()
-
-    const r = this.result.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
-
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
-
-    return t.slice(0, ti).concat(r.slice(ri)).join('/')
-  }
-
-  headKey () {
-    if (this.target && this.i === this.target.hash.length) return this.result.key.toString()
-    if (this.head === null) return null
-    if (!this.target) return this.head.key.toString()
-
-    const r = this.target.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
-
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
-
-    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
-
-    return res
   }
 
   _push (i, head, key, all) {
