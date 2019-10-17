@@ -232,7 +232,7 @@ module.exports = class Trie {
     if (!resolve) return
 
     this._put(fromNode.key.toString(), { value: from, deletion: true })
-    const fromSeq = this.feed.length
+    const fromSeq = this.feed.length - 1
     const t = this._getPutInfo(resolve.node.key.toString(), {}, false)
     if (!t) {
       this.feed.data.pop()
