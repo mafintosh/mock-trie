@@ -1,4 +1,4 @@
-const { GetController, PutController, Node } = require('./')
+const { IteratorController, GetController, PutController, Node } = require('./')
 const Hash = require('./hash')
 const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
@@ -19,43 +19,33 @@ module.exports = class Trie {
     this.feed.append({ header: true })
   }
 
-  get (key) {
+  iterator () {
     const self = this
     let depth = 0
-    let prev = Infinity
+
+    const c = new IteratorController({
+      get (key) {
+        return self.get(key, { closest: true })
+      }
+    })
+
+    c.setFeed(this.feed)
+
+    return c
+  }
+  get (key, opts) {
+    const self = this
+    let depth = 0
 
     const c = new GetController({
-      onnode (node) {
-        // console.log('GET NODE:', node, 'TARGET:', c.target)
-        return node
-      },
-
+      closest: !!(opts && opts.closest),
       onclosest (node) {
         if (!node) return null
-        if (node.seq >= prev) {
-          return node
-        }
-        // if (node.visited) {
-        //   console.log('??')
-        //   return null
-        // }
-        prev = node.seq
-        // node.visited = true
-// console.log('closett', node, c.i, node.hash.length, c.target.key.toString())
+
         const val = JSON.parse(node.value)
 
         if (val.rename) {
-          const key = redirectTo(c.target, node, val.rename)
-          // const key = (c.target.key.toString().replace(node.key.toString(), val.rename) || '/')
-          // console.log('c.target', c.target.key.toString())
-          // console.log('node', node.key.toString())
-          // console.log('rename', val.rename.toString())
-          // console.log('recirect!', key)
-          // c.setTarget(key)
-          // console.log('set target', key)
-          // c.i = val.rename.split('/').length * 32
-          // console.log('c.i', c.i, key)
-          return null //node // TODO: just check that we do not visit the same node twice instead
+          return null
         }
 
         if (val.mount) { // and validate prefix
@@ -75,13 +65,9 @@ module.exports = class Trie {
           const target = c.result.key.toString()
           const linkname = c.headKey() // head === node
 
-          // console.log('IN A SYMLINK, target:', target, 'linkname:', linkname)
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
             const symlink = JSON.parse(node.value).symlink
             const resolved = resolveLink(target, linkname, symlink)
-            // console.log('FOUND SYMLINK:', symlink, 'AT:', linkname, 'TARGET:', target, 'RIGHT KEY?', target.startsWith(linkname))
-            // console.log('  setting target to:', resolved, 'symlink:', symlink)
-            prev = Infinity
             c.reset()
             c.setFeed(self.feed)
             c.setTarget(resolved)
@@ -109,9 +95,12 @@ module.exports = class Trie {
     c.setTarget(key)
 
     try {
-      const { node } = c.update()
+      const { node, i } = c.update()
       if (node) {
         node.value = JSON.parse(node.value)
+      }
+      if (c.handlers.closest) {
+        return { i, node }
       }
       return node
     } catch (err) {
@@ -122,11 +111,8 @@ module.exports = class Trie {
 
   _getPutInfo (key, val = {}, renaming) {
     const self = this
-    let prev = Infinity
     let depth = 0
     const isDeletion = val.deletion
-
-    // console.log('before put, trie:', this)
 
     const c = new PutController({
       onlink (i, val, seq) {
@@ -134,22 +120,12 @@ module.exports = class Trie {
         if (i >= max) return false
         return true
       },
-      onnode (node) {
-        // if (val.deletion) {
-        //   // if (node.key.toString().startsWith(key.toString())) {
-        //   //   return null
-        //   // }
-        // }
-        return node
-      },
       onlinkclosest (node) {
         if (!isDeleteish(node)) return true
         return node.trie.length > c.j + 1
       },
       onclosest (node) {
         if (!node) return node
-        if (node.seq >= prev) return node
-        prev = node.seq
 
         const v = JSON.parse(node.value)
         const target = c.result.key.toString()
@@ -162,7 +138,6 @@ module.exports = class Trie {
           const key = c.headKey() // head === node
           if (target === key) return node
           const resolved = resolveLink(target, key, v.symlink)
-          prev = Infinity
           c.reset()
           c.setKey(resolved)
           c.setFeed(self.feed)

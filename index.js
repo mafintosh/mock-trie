@@ -66,6 +66,9 @@ class PutController {
   }
 
   key () {
+    if (!this.head || !this.result) return null
+    if (this.i === this.result.hash.length) return this.head.key.toString()
+
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
@@ -77,6 +80,7 @@ class PutController {
 
   headKey () {
     if (!this.head || !this.result) return null
+    if (this.i === this.result.hash.length) return this.result.key.toString()
 
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
@@ -207,6 +211,108 @@ class PutController {
   }
 }
 
+const {
+  resolveLink,
+  shouldFollowLink,
+  linkContains,
+  redirectTo
+} = require('./lib/paths')
+
+const MAX_SYMLINK_DEPTH = 20
+
+class IteratorController {
+  constructor (handlers) {
+    this.handlers = handlers
+    this.stack = null
+    this.feed = null
+  }
+
+  setFeed (feed) {
+    this.feed = feed
+  }
+
+  _push (i, head, key, all) {
+    const j = (i / 32) | 0
+    const p = head.key.toString().split('/')
+    if (j >= p.length) return
+    key.push(p[j])
+    if (!all) return
+    const rest = p.slice(j + 1)
+    if (rest) key.push(...rest)
+  }
+
+  pop () {
+    let { d, key, i, val, head } = this.stack.pop()
+
+    for (; i < head.trie.length; i++) {
+      const links = head.trie[i] || []
+
+      if (((i + 1) & 31) === 0) this._push(i, head, key, false)
+
+      for (; val < links.length; val++) {
+        const offset = head.trieObject.offset(i, val)
+        const seq = links[val]
+        if (!seq) continue
+        this.stack.push({ d, key, i, val: val + 1, head })
+        this.stack.push({ d, key: key.slice(), i: i + 1 + 32 * offset, val: 0, head: this.getSeq(seq) })
+        return null
+      }
+
+      val = 0
+    }
+
+    if ((i & 31) !== 0) this._push(i, head, key, true)
+
+    const value = JSON.parse(head.value)
+
+    if (value.rename) return null
+    if (value.deletion) return null
+
+    if (value.symlink) {
+      const k = key.join('/')
+      const resolved = resolveLink(k, k, value.symlink)
+
+      if (d >= MAX_SYMLINK_DEPTH) return null
+
+      if (this.handlers && this.handlers.get) {
+        const { i, node: head } = this.handlers.get(resolved)
+        if (head) {
+          this.stack.push({ d: d + 1, key, i, val: 0, head: this.getSeq(head.seq) })
+        }
+        return
+      }
+    }
+
+    return {
+      key: key.join('/'),
+      value
+    }
+  }
+
+  next () {
+    if (!this.stack) {
+      this.stack = [ { d: 0, key: [], i: 0, val: 0, head: this.getSeq(this.feed.length - 1) }]
+    }
+
+    while (this.stack.length) {
+      const node = this.pop()
+      if (node) return node
+    }
+
+    return null
+  }
+
+  getSeq (seq) {
+    if (seq <= 0) return null
+    const val = this.feed.get(seq)
+    if (!val) return null
+    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
+    if (this.handlers.onnode) {
+      return this.handlers.onnode(node)
+    }
+    return node
+  }
+}
 
 class GetController {
   constructor (handlers) {
@@ -317,7 +423,7 @@ class GetController {
       }
     }
 
-    if (this.handlers.onclosest) {
+    if (this.handlers.onclosest && !this.handlers.closest) {
       this.head = this.handlers.onclosest(this.head)
       if (this._reset) {
         this._reset = false
@@ -325,12 +431,12 @@ class GetController {
       }
     }
 
-    if (this.head && this.i === this.target.hash.length) {
-      if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
-      return { node: this.head, feed: this.feed }
+    if (this.head && this.i >= (this.target.hash.length - (this.handlers.closest ? 1 : 0))) {
+      if (this.handlers.finalise && !this.handlers.closest) this.head = this.handlers.finalise(this.head)
+      return { node: this.head, feed: this.feed, i: this.i }
     }
 
-    return { node: null, feed: null }
+    return { node: null, feed: null, i: 0 }
   }
 
   getSeq (seq) {
@@ -378,114 +484,9 @@ class Node {
   }
 }
 
-module.exports = class MockTrie {
-  constructor () {
-    this.feed = new MockFeed()
-    this.feed.append({ header: true })
-  }
-
-  getSeq (seq) {
-    if (seq <= 0) return null
-    const val = this.feed.get(seq)
-    if (!val) return null
-    return new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
-  }
-
-  head () {
-    return this.getSeq(this.feed.length - 1)
-  }
-
-  get (key) {
-    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
-
-    let head = this.head()
-    const target = new Node(key, null, null, 0)
-
-    for (let i = 0; i < target.hash.length; i++) {
-      const val = target.hash.get(i)
-      if (val === head.hash.get(i)) continue
-
-      if (i >= head.trie.length) return null
-
-      const link = head.trie[i]
-      if (!link) return null
-
-      const seq = link[val]
-      if (!seq) return null
-
-      head = this.getSeq(seq)
-    }
-
-    if (head.key.equals(target.key)) return head
-    return null
-  }
-
-  put (key, value) {
-    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
-    if (!Buffer.isBuffer(value)) value = Buffer.from(value)
-
-    let head = this.head()
-    const target = new Node(key, value, null, this.feed.length)
-
-    if (!head) {
-      this.feed.append(target.finalise())
-      return
-    }
-
-    for (let i = 0; i < target.hash.length; i++) {
-      const headVal = head.hash.get(i)
-      const headLink = i < head.trie.length ? head.trie[i] : null
-      const val = target.hash.get(i)
-
-      // copy over existing trie links
-      if (headLink) {
-        for (let j = 0; j < headLink.length; j++) {
-          if (j === val || !headLink[j]) continue // we are closest
-          target.trieBuilder.addLink(i, j, headLink[j])
-        }
-      }
-
-      // no fork yet, continue with current head
-      if (val === headVal) continue
-
-      // link the head
-      target.trieBuilder.addLink(i, headVal, head.seq)
-
-      // look in the heads trie to find a closer node
-      if (!headLink) break
-      const seq = headLink[val]
-      if (!seq) break
-
-      head = this.getSeq(seq)
-    }
-
-    // done, append the target
-    this.feed.append(target.finalise())
-  }
-
-  replicate (other) {
-    this.feed.replicate(other.feed)
-  }
-
-  [util.inspect.custom] (depth, opts) {
-    const lvl = (opts && opts.indentationLvl) || 0
-    const indent = ' '.repeat(lvl)
-
-    let nodes = ''
-
-    for (let i = 1; i < this.feed.length; i++) {
-      const node = this.getSeq(i)
-      nodes += printNode(node, indent + '  ', this) + '\n'
-    }
-
-    return indent + 'MockTrie (\n' +
-           nodes +
-           indent + ')'
-  }
-}
-
 module.exports.GetController = GetController
 module.exports.PutController = PutController
+module.exports.IteratorController = IteratorController
 module.exports.Node = Node
 
 function printNode (node, indent, opts) {
