@@ -1,5 +1,5 @@
-const MockTrie = require('../')
-
+const MockTrie = require('../trie')
+console.log(MockTrie)
 const m = new MockTrie()
 
 m.put('a', 'a')

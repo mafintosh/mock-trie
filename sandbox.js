@@ -1,9 +1,4 @@
-const MockTrie = require('./')
 const Trie = require('./trie')
-
-const m = new MockTrie()
-
-m.put('a', JSON.stringify({ actual: 'a', actualTrie: 'm' }))
 
 const t = new Trie()
 let debug = false
