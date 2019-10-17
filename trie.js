@@ -1,4 +1,4 @@
-const { GetController, PutController, Node } = require('./')
+const { IteratorController, GetController, PutController, Node } = require('./')
 const Hash = require('./hash')
 const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
@@ -19,11 +19,26 @@ module.exports = class Trie {
     this.feed.append({ header: true })
   }
 
-  get (key) {
+  iterator () {
+    const self = this
+    let depth = 0
+
+    const c = new IteratorController({
+      get (key) {
+        return self.get(key, { closest: true })
+      }
+    })
+
+    c.setFeed(this.feed)
+
+    return c
+  }
+  get (key, opts) {
     const self = this
     let depth = 0
 
     const c = new GetController({
+      closest: !!(opts && opts.closest),
       onclosest (node) {
         if (!node) return null
 
@@ -80,9 +95,12 @@ module.exports = class Trie {
     c.setTarget(key)
 
     try {
-      const { node } = c.update()
+      const { node, i } = c.update()
       if (node) {
         node.value = JSON.parse(node.value)
+      }
+      if (c.handlers.closest) {
+        return { i, node }
       }
       return node
     } catch (err) {

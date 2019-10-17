@@ -211,6 +211,152 @@ class PutController {
   }
 }
 
+const {
+  resolveLink,
+  shouldFollowLink,
+  linkContains,
+  redirectTo
+} = require('./lib/paths')
+
+const MAX_SYMLINK_DEPTH = 20
+
+class IteratorController {
+  constructor (handlers) {
+    this.handlers = handlers
+    this.feed = null
+    this.i = 0
+    this.head = null
+    this._reset = false
+    this._o = 0
+    this.stack = null
+  }
+
+  reset () {
+    this.target = null
+    this.i = 0
+    this.head = null
+    this._reset = true
+    this._o = 0
+  }
+
+  setFeed (feed) {
+    this.feed = feed
+    this.head = null
+    this.i = 0
+    this._reset = true
+    this._o = 0
+  }
+
+  key () {
+    if (!this.result) return this.head.key.toString()
+
+    const r = this.result.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    return t.slice(0, ti).concat(r.slice(ri)).join('/')
+  }
+
+  headKey () {
+    if (this.target && this.i === this.target.hash.length) return this.result.key.toString()
+    if (this.head === null) return null
+    if (!this.target) return this.head.key.toString()
+
+    const r = this.target.key.toString().split('/')
+    const t = this.head.key.toString().split('/')
+
+    const ri = Math.floor(this.i / 32)
+    const ti = Math.floor((this.i + this._o) / 32)
+
+    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
+
+    return res
+  }
+
+  _push (i, head, key, all) {
+    const j = (i / 32) | 0
+    const p = head.key.toString().split('/')
+    if (j >= p.length) return
+    key.push(p[j])
+    if (!all) return
+    const rest = p.slice(j + 1)
+    if (rest) key.push(...rest)
+  }
+
+  pop () {
+    let { d, key, i, val, head } = this.stack.pop()
+
+    for (; i < head.trie.length; i++) {
+      const links = head.trie[i] || []
+
+      if (((i + 1) & 31) === 0) this._push(i, head, key, false)
+
+      for (; val < links.length; val++) {
+        const offset = head.trieObject.offset(i, val)
+        const seq = links[val]
+        if (!seq) continue
+        this.stack.push({ d, key, i, val: val + 1, head })
+        this.stack.push({ d, key: key.slice(), i: i + 1 + 32 * offset, val: 0, head: this.getSeq(seq) })
+        return null
+      }
+
+      val = 0
+    }
+
+    if ((i & 31) !== 0) this._push(i, head, key, true)
+
+    const value = JSON.parse(head.value)
+
+    if (value.rename) return null
+    if (value.deletion) return null
+
+    if (value.symlink) {
+      const k = key.join('/')
+      const resolved = resolveLink(k, k, value.symlink)
+
+      if (d >= MAX_SYMLINK_DEPTH) return null
+
+      if (this.handlers && this.handlers.get) {
+        const { i, node: head } = this.handlers.get(resolved)
+        if (head) {
+          this.stack.push({ d: d + 1, key, i, val: 0, head: this.getSeq(head.seq) })
+        }
+        return
+      }
+    }
+
+    return {
+      key: key.join('/'),
+      value
+    }
+  }
+
+  next () {
+    if (!this.stack) {
+      this.stack = [ { d: 0, key: [], i: 0, val: 0, head: this.getSeq(this.feed.length - 1) }]
+    }
+
+    while (this.stack.length) {
+      const node = this.pop()
+      if (node) return node
+    }
+
+    return null
+  }
+
+  getSeq (seq) {
+    if (seq <= 0) return null
+    const val = this.feed.get(seq)
+    if (!val) return null
+    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
+    if (this.handlers.onnode) {
+      return this.handlers.onnode(node)
+    }
+    return node
+  }
+}
 
 class GetController {
   constructor (handlers) {
@@ -321,7 +467,7 @@ class GetController {
       }
     }
 
-    if (this.handlers.onclosest) {
+    if (this.handlers.onclosest && !this.handlers.closest) {
       this.head = this.handlers.onclosest(this.head)
       if (this._reset) {
         this._reset = false
@@ -329,12 +475,12 @@ class GetController {
       }
     }
 
-    if (this.head && this.i === this.target.hash.length) {
-      if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
-      return { node: this.head, feed: this.feed }
+    if (this.head && this.i >= (this.target.hash.length - (this.handlers.closest ? 1 : 0))) {
+      if (this.handlers.finalise && !this.handlers.closest) this.head = this.handlers.finalise(this.head)
+      return { node: this.head, feed: this.feed, i: this.i }
     }
 
-    return { node: null, feed: null }
+    return { node: null, feed: null, i: 0 }
   }
 
   getSeq (seq) {
@@ -384,6 +530,7 @@ class Node {
 
 module.exports.GetController = GetController
 module.exports.PutController = PutController
+module.exports.IteratorController = IteratorController
 module.exports.Node = Node
 
 function printNode (node, indent, opts) {

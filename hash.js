@@ -24,6 +24,8 @@ function hash (data) {
 }
 
 function split (data) {
+  if (!data.length) return []
+
   const ch = Buffer.from('/')[0]
   const parts = []
 
