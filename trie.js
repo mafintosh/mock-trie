@@ -144,7 +144,7 @@ module.exports = class Trie {
       },
       onlinkclosest (node) {
         if (!isDeleteish(node)) return true
-        return node.trie.length > c.j
+        return node.trie.length > c.j + 1
       },
       onclosest (node) {
         if (!node) return node
