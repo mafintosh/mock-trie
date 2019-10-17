@@ -66,6 +66,9 @@ class PutController {
   }
 
   key () {
+    if (!this.head || !this.result) return null
+    if (this.i === this.result.hash.length) return this.head.key.toString()
+
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
 
@@ -77,6 +80,7 @@ class PutController {
 
   headKey () {
     if (!this.head || !this.result) return null
+    if (this.i === this.result.hash.length) return this.result.key.toString()
 
     const r = this.result.key.toString().split('/')
     const t = this.head.key.toString().split('/')
