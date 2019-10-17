@@ -1,4 +1,6 @@
 const util = require('util')
+const StackIterator = require('stackable-nanoiterator')
+const nanoiterator = require('nanoiterator')
 
 const {
   resolveLink,
@@ -117,7 +119,7 @@ module.exports = class ReferenceTrie {
     if (next.symlink) {
       if (linkDepth > MAX_SYMLINK_DEPTH) {
         key = null
-        return finalize(null) 
+        return finalize(null)
       }
 
       var linkTarget = next.symlink.target
@@ -186,6 +188,90 @@ module.exports = class ReferenceTrie {
       for (let [key, child] of node.children) {
         stack.push({ depth, path: ((path === '') ? '' : path + '/') + key, node: child })
       }
+    }
+  }
+
+  // This is a non-symlink aware iterator.
+  _iterator (prefix, opts = {}) {
+    if (!prefix) prefix = ''
+    const recursive = !!opts.recursive
+    const gt = !!opts.gt
+
+    const queue = []
+    queue.push({ path: '', node: this.root })
+
+    return nanoiterator({ next })
+
+    function next (cb) {
+      if (!queue.length) return process.nextTick(cb, null)
+      const { path, node } = queue.shift()
+
+      if ((path.startsWith(prefix) && recursive) || prefix.startsWith(path)) {
+        for (const [component, child] of node.children) {
+          queue.push({
+            path: path === '' ? component : path + '/' + component,
+            node: child
+          })
+        }
+      }
+      const validPath = path && path.startsWith(prefix)
+      if (gt && path === prefix) return next(cb)
+      if (validPath) return process.nextTick(cb, null, { path, node })
+      return next(cb)
+    }
+  }
+
+  // This is a symlink-aware iterator.
+  iterator (prefix, opts = {}) {
+    if (prefix && typeof prefix !== 'string') {
+      opts = prefix
+      prefix = ''
+    }
+    if (!prefix) prefix = ''
+
+    const self = this
+    const visited = new Set()
+    const ite = new StackIterator({
+      maxDepth: MAX_SYMLINK_DEPTH,
+      map,
+    })
+    var recursive = !!opts.recursive
+    var initialized = false
+
+    ite.push(this._iterator(prefix, { ...opts, gt: false }), prefix)
+    return ite
+
+    function map (value, targets, cb) {
+      if (!value) return process.nextTick(cb, null)
+      const { path, node } = value
+      //console.log('path:', path, 'depth:', ite.depth, 'visited?', visited.has(node))
+      if (visited.has(node)) return process.nextTick(cb, null)
+      visited.add(node)
+
+      if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
+        const target = resolveLink(path, path, node.symlink.target)
+        //console.log('target:', target)
+        ite.push(self._iterator(target, { ...opts, gt: false }), target)
+        return process.nextTick(cb, null)
+      }
+
+      initialized = true
+      const normalizedPath = normalizePath(path, targets)
+
+      if (normalizedPath === prefix && opts.gt) return process.nextTick(cb, null)
+      return process.nextTick(cb, { path: normalizedPath, node })
+    }
+
+    function normalizePath (path, targets) {
+      //console.log('normalizing path:', path, 'targets:', targets)
+      var normalizedPath = path
+      for (let i = 0; i < targets.length - 1; i++) {
+        const currentTarget = targets[i]
+        const previousTarget = targets[i + 1]
+        //console.log('currentTarget:', currentTarget, 'previousTarget:', previousTarget,'path:', path, 'normalized:', normalizedPath)
+        normalizedPath = previousTarget + normalizedPath.slice(currentTarget.length)
+      }
+      return normalizedPath
     }
   }
 
