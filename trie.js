@@ -22,16 +22,10 @@ module.exports = class Trie {
   get (key) {
     const self = this
     let depth = 0
-    let prev = Infinity
 
     const c = new GetController({
       onclosest (node) {
         if (!node) return null
-        if (node.seq >= prev) {
-          return node
-        }
-
-        prev = node.seq
 
         const val = JSON.parse(node.value)
 
@@ -59,7 +53,6 @@ module.exports = class Trie {
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
             const symlink = JSON.parse(node.value).symlink
             const resolved = resolveLink(target, linkname, symlink)
-            prev = Infinity
             c.reset()
             c.setFeed(self.feed)
             c.setTarget(resolved)
@@ -100,7 +93,6 @@ module.exports = class Trie {
 
   _getPutInfo (key, val = {}, renaming) {
     const self = this
-    let prev = Infinity
     let depth = 0
     const isDeletion = val.deletion
 
@@ -116,8 +108,6 @@ module.exports = class Trie {
       },
       onclosest (node) {
         if (!node) return node
-        if (node.seq >= prev) return node
-        prev = node.seq
 
         const v = JSON.parse(node.value)
         const target = c.result.key.toString()
@@ -130,7 +120,6 @@ module.exports = class Trie {
           const key = c.headKey() // head === node
           if (target === key) return node
           const resolved = resolveLink(target, key, v.symlink)
-          prev = Infinity
           c.reset()
           c.setKey(resolved)
           c.setFeed(self.feed)
