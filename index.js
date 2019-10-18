@@ -291,7 +291,13 @@ class IteratorController {
 
   next () {
     if (!this.stack) {
-      this.stack = [ { d: 0, key: [], i: 0, val: 0, head: this.getSeq(this.feed.length - 1) }]
+      if (this.handlers.prefix) {
+        const { i, node: head } = this.handlers.get(this.handlers.prefix)
+        if (!head) this.stack = []
+        else this.stack = [{ d: 0, key: this.handlers.prefix.split('/'), i, val: 0, head: this.getSeq(head.seq) }]
+      } else {
+        this.stack = [{ d: 0, key: [], i: 0, val: 0, head: this.getSeq(this.feed.length - 1) }]
+      }
     }
 
     while (this.stack.length) {

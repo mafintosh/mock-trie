@@ -18,7 +18,7 @@ t.put('1/1/1/1/1', '...')
 
 const stack = []
 
-const c = t.iterator()
+const c = t.iterator('renamed')
 
 while (true) {
   const node = c.next()

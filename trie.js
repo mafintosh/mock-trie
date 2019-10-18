@@ -19,11 +19,12 @@ module.exports = class Trie {
     this.feed.append({ header: true })
   }
 
-  iterator () {
+  iterator (prefix) {
     const self = this
     let depth = 0
 
     const c = new IteratorController({
+      prefix,
       get (key) {
         return self.get(key, { closest: true })
       }
