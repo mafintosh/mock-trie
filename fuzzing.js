@@ -1,5 +1,5 @@
-const Reference = require('../reference')
-const Trie = require('../../trie')
+const Reference = require('./reference')
+const Trie = require('.')
 
 const KEY_CHARACTERS = 'abcd'
 const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
@@ -15,14 +15,14 @@ async function setup () {
   const trie = new Trie()
   return {
     reference,
-    actual: true,
+    actual: trie,
     state: null
   }
 }
 
 class Inputs {
   constructor (rng, opts = {}) {
-    this.rng = rng
+    this.generator = rng
     this._maxComponentLength = opts.maxComponentLength
     this._maxPathDepth = opts.maxPathDepth
   }
@@ -30,23 +30,24 @@ class Inputs {
   _randomString (alphabet, length) {
     var s = ''
     for (let i = 0; i < length; i++) {
-      s += alphabet[this.rng(alphabet.length) || 1]
+      s += alphabet[this.generator(alphabet.length) || 1]
     }
     return s
   }
 
   _relativeSymlink () {
-    const { path } = this._generatePair()
+    var { path } = this._kvPair()
+    path = path.split('/')
     const numRelativeIndexes = this.generator(path.length / 2 + 1)
     const relativeIndexes = new Array(numRelativeIndexes).fill(0).map(() => this.generator(path.length + 1))
     for (const index of relativeIndexes) {
       path.splice(index, 0, '..')
     }
-    return path
+    return path.join('/')
   }
 
   _absoluteSymlink () {
-    var { path } = this._generatePair()
+    var { path } = this._kvPair()
     return path
   }
 
@@ -57,15 +58,13 @@ class Inputs {
       const length = this.generator(this._maxComponentLength + 1) || 1
       return this._randomString(KEY_CHARACTERS, length)
     })
-    return { path, value }
+    return { path: path.join('/'), value }
   }
 
   _symlink () {
     const absolute = !!this.generator(2)
-    const { path: linknamePath } = this.kvPair()
-    const targetPath = !absolute ? this._relativeSymlink() : this._absoluteSymlink()
-    const linkname = linknamePath.join('/')
-    var target = targetPath.join('/')
+    const { path: linkname } = this._kvPair()
+    var target = !absolute ? this._relativeSymlink() : this._absoluteSymlink()
     if (absolute) target = '/' + target
     return { linkname, target }
   }
@@ -101,12 +100,10 @@ class Operations {
 
   put (path, value) {
     this.reference.put(path, value)
-    return this.actual.put(path.join('/'), value)
+    return this.actual.put(path, value)
   }
 
   rename (from, to) {
-    from = path.join('/')
-    to = path.join('/')
     this.reference.rename(from, to)
     return this.actual.rename(from, to)
   }
@@ -117,19 +114,19 @@ class Operations {
   }
 
   delete (path, opts) {
-    const key = path.join('/')
-    this.reference.delete(key)
-    return this.actual.del(key)
+    this.reference.delete(path)
+    return this.actual.del(path)
   }
 }
 
 class Validators {
   constructor (generator, inputs, reference, actual, opts = {}) {
+    console.log('opts in validators:', opts)
     this.generator = generator
     this.inputs = inputs
     this.reference = reference
     this.actual = actual
-    this.opts = opts.validation
+    this.opts = opts
   }
 
   _getError (actualKey, expectedKey, actualValue, expectedValue) {
@@ -168,11 +165,14 @@ class Validators {
     const self = this
     const gt = !!opts.gt
     const recursive = !!opts.recursive
+    console.log('in sameIterators, path:', path, 'gt:', gt, 'recursive:', recursive)
 
     const expectedIterator = this.reference.iterator(path, { gt, recursive})
     const actualIterator = this.actual.iterator(path, { gt, recursive })
     var expectedNodes = await all(expectedIterator)
+    console.log('expectedNodes:', expectedNodes)
     var actualNodes = await all(actualIterator)
+    console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
 
     const expectedMap = buildMap(expectedNodes.map(({ path, node }) => [path, node]))
     const actualMap = buildMap(actualNodes.map(node => [node.key, node]))
@@ -206,6 +206,7 @@ class Validators {
       return new Promise((resolve, reject) => {
         iterator.next(function onnext (err, value) {
           if (err) return reject(err)
+          console.log('iterator returned value:', value)
           if (!value) return resolve(values)
           values.push(value)
           return iterator.next(onnext)
@@ -216,9 +217,7 @@ class Validators {
 
   reachable (test) {
     return this.reference.map(async (path, node, target) => {
-      const expectedNode = node.symlink ? target : node
-      const otherNode = await this.actual.get(path)
-      return test(path, expectedNode, otherNode)
+      return test(path)
     })
   }
 
@@ -226,7 +225,7 @@ class Validators {
     const numKeys = this.opts.syntheticKeys.keys
     for (let i = 0; i < numKeys; i++) {
       const [ path ] = this.inputs.put()
-      return test(path)
+      await test(path)
     }
   }
 
@@ -237,7 +236,7 @@ class Validators {
       const gt = !!this.generator(2)
       const recursive = !!this.generator(2)
 
-      return test(path), expectedIterator, actualIterator)
+      await test(path, { gt, recursive })
     }
   }
 }

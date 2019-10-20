@@ -1,9 +1,7 @@
 module.exports = {
-  global: {
-    seed: 'fuzzing-',
-    iterations: 2000,
-    operations: 10
-  },
+  seed: 'mock-trie',
+  numIterations: 2000,
+  numOperations: 10,
   shortening: {
     maxShorteningIterations: 1e6
   },
@@ -16,11 +14,7 @@ module.exports = {
       enabled: true,
       weight: 2
     },
-    absoluteSymlink: {
-      enabled: true,
-      weight: 1
-    },
-    relativeSymlink: {
+    symlink: {
       enabled: true,
       weight: 1
     },
@@ -39,11 +33,11 @@ module.exports = {
     },
     syntheticKeys: {
       enabled: true,
-      syntheticKeys: 2000
+      keys: 20
     },
-    iteration: {
+    iterators: {
       enabled: true,
-      syntheticKeys: 2000
+      keys: 20
     }
   }
 }
