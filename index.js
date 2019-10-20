@@ -1,215 +1,8 @@
+const { IteratorController, GetController, PutController, Node } = require('./lib/controllers')
+const Hash = require('./lib/hash')
+const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
-const HashPath = require('./hash')
-const TrieBuilder = require('./trie-builder')
 const util = require('util')
-
-class PutController {
-  constructor (handlers, opts = {}) {
-    this.handlers = handlers
-    this.feed = null
-    this.target = null
-    this.i = 0
-    this.j = 0
-    this.head = null
-    this.trieBuilder = new TrieBuilder()
-    this.value = null
-
-    this._returnTrie = !!opts.trie
-    this._reset = false
-    this._key = null
-    this._trieOffset = 0
-    this._o = 0
-  }
-
-  reset () {
-    this.feed = null
-    this.target = null
-    this.trieBuilder = new TrieBuilder()
-    this.i = 0
-    this.head = null
-    this.result = null
-    this._reset = true
-    this._trieOffset = 0
-    this._o = 0
-  }
-
-  setFeed (feed) {
-    this.feed = feed
-    this.head = null
-    this.i = 0
-    this._reset = true
-    this._o = 0
-  }
-
-  setOffset (offset) {
-    this._o = 32 * offset
-  }
-
-  setTarget (key) {
-    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
-    if (!this._key) this._key = key
-    this.target = new Node(key, null, null)
-    if (!this.result) this.result = this.target
-    this.i = 0
-    this._reset = true
-    this._o = 0
-    this.j = 0
-    return key
-  }
-
-  setKey (key) {
-    this._key = this.setTarget(key)
-  }
-
-  setValue (val) {
-    this.value = val
-  }
-
-  key () {
-    if (!this.head || !this.result) return null
-    if (this.i === this.result.hash.length) return this.head.key.toString()
-
-    const r = this.result.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
-
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i - this._o) / 32)
-
-    return t.slice(0, ti).concat(r.slice(ri)).join('/')
-  }
-
-  headKey () {
-    if (!this.head || !this.result) return null
-    if (this.i === this.result.hash.length) return this.result.key.toString()
-
-    const r = this.result.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
-
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i - this._o) / 32)
-
-    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
-
-    return res
-  }
-
-  update () {
-    this._update()
-    if (this._returnTrie) return this.trieBuilder
-
-    const { deflated } = this.trieBuilder.finalise()
-
-    const node = {
-      key: this._key,
-      value: this.value,
-      trie: deflated,
-      hash: this.target.hash,
-      trieBuilder: this.trieBuilder,
-      head: this.head,
-      headKey: this.headKey()
-    }
-
-    return { node, feed: this.feed }
-  }
-
-  _link (i, val, seq, offset) {
-    if (!offset) offset = 0
-    offset *= 32
-    offset += this._o
-    if (i < this._trieOffset) return
-    this._trieOffset = i // hack to not rebuild the trie, todo: better solition
-    if (this.handlers.onlink && !this.handlers.onlink(i, val, seq)) return
-    this.trieBuilder.link(i, val, seq, -(offset / 32))
-  }
-
-  _update () {
-    for (; this.i < this.target.hash.length; this.i++) {
-      if (!this.head) {
-        this.head = this.getSeq(this.feed.length - 1)
-
-        if (this._reset) {
-          this._reset = false
-          this.i--
-          continue
-        }
-      }
-
-      if (!this.head) break
-
-      const i = this.i
-      const j = this.j = this.i - this._o
-      const headVal = this.head.hash.get(j)
-      const headLink = j < this.head.trie.length ? this.head.trie[j] : null
-      const val = this.target.hash.get(this.i)
-
-      // copy over existing trie links
-      if (headLink) {
-        for (let k = 0; k < headLink.length; k++) {
-          if (k === val || !headLink[k]) continue // we are closest
-          this._link(i, k, headLink[k], -this.head.trieObject.offset(j, k))
-        }
-        // preserve explicit link set by rename
-        if (val === 4 && headLink[4] && headVal === 4 && this.renaming) {
-          this._link(i, 4, headLink[4], -this.head.trieObject.offset(j, 4))
-        }
-      }
-
-      if (val === headVal) continue
-
-      // link the head
-      if (!this.handlers.onlinkclosest || this.handlers.onlinkclosest(this.head)) {
-        this._link(i, headVal, this.head.seq)
-      }
-
-      if (j >= this.head.trie.length) break
-
-      const link = this.head.trie[j]
-      if (!link) break
-
-      const seq = link[val]
-      if (!seq) break
-
-      const offset = this.head.trieObject.offset(j, val)
-      if (offset) {
-        this._o += -32 * offset
-      }
-
-      this.head = this.getSeq(seq)
-
-      if (this._reset) {
-        this._reset = false
-        this.i--
-        continue
-      }
-    }
-
-    if (this.handlers.onclosest) {
-      this.head = this.handlers.onclosest(this.head)
-      if (this._reset) {
-        this._reset = false
-        return this._update()
-      }
-    }
-
-    if (this.head && this.head.key.equals(this.target.key)) {
-      if (this.handlers.finalise) this.head = this.handlers.finalise(this.head)
-      return this.head
-    }
-
-    return null
-  }
-
-  getSeq (seq) {
-    if (seq <= 0) return null
-    const val = this.feed.get(seq)
-    if (!val) return null
-    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
-    if (this.handlers.onnode) {
-      return this.handlers.onnode(node)
-    }
-    return node
-  }
-}
 
 const {
   resolveLink,
@@ -220,313 +13,275 @@ const {
 
 const MAX_SYMLINK_DEPTH = 20
 
-class IteratorController {
-  constructor (handlers) {
-    this.handlers = handlers
-    this.stack = null
-    this.feed = null
+module.exports = class Trie {
+  constructor () {
+    this.feed = new MockFeed()
+    this.feed.append({ header: true })
   }
 
-  setFeed (feed) {
-    this.feed = feed
-  }
+  iterator (prefix) {
+    const self = this
+    let depth = 0
 
-  _push (i, head, key, all) {
-    const j = (i / 32) | 0
-    const p = head.key.toString().split('/')
-    if (j >= p.length) return
-    key.push(p[j])
-    if (!all) return
-    const rest = p.slice(j + 1)
-    if (rest) key.push(...rest)
-  }
-
-  pop () {
-    let { d, key, i, val, head } = this.stack.pop()
-
-    for (; i < head.trie.length; i++) {
-      const links = head.trie[i] || []
-
-      if (((i + 1) & 31) === 0) this._push(i, head, key, false)
-
-      for (; val < links.length; val++) {
-        const offset = head.trieObject.offset(i, val)
-        const seq = links[val]
-        if (!seq) continue
-        this.stack.push({ d, key, i, val: val + 1, head })
-        this.stack.push({ d, key: key.slice(), i: i + 1 + 32 * offset, val: 0, head: this.getSeq(seq) })
-        return null
+    const c = new IteratorController({
+      prefix,
+      get (key) {
+        return self.get(key, { closest: true })
       }
+    })
 
-      val = 0
-    }
+    c.setFeed(this.feed)
 
-    if ((i & 31) !== 0) this._push(i, head, key, true)
+    return c
+  }
+  get (key, opts) {
+    const self = this
+    let depth = 0
 
-    const value = JSON.parse(head.value)
+    const c = new GetController({
+      closest: !!(opts && opts.closest),
+      onclosest (node) {
+        if (!node) return null
 
-    if (value.rename) return null
-    if (value.deletion) return null
+        const val = JSON.parse(node.value)
 
-    if (value.symlink) {
-      const k = key.join('/')
-      const resolved = resolveLink(k, k, value.symlink)
-
-      if (d >= MAX_SYMLINK_DEPTH) return null
-
-      if (this.handlers && this.handlers.get) {
-        const { i, node: head } = this.handlers.get(resolved)
-        if (head) {
-          this.stack.push({ d: d + 1, key, i, val: 0, head: this.getSeq(head.seq) })
+        if (val.rename) {
+          return null
         }
-        return
-      }
-    }
 
-    return {
-      key: key.join('/'),
-      value
+        if (val.mount) { // and validate prefix
+          const key = (c.target.key.toString().replace(node.key.toString(), '') || '/').replace('/', '')
+          prev = Infinity
+          c.reset()
+          c.setFeed(m.feed) // will fail for now ...
+          c.setTarget(key)
+          return null
+        }
+
+        if (val.deletion) {
+          return null
+        }
+
+        if (val.symlink) {
+          const target = c.result.key.toString()
+          const linkname = c.headKey() // head === node
+
+          if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
+            const symlink = JSON.parse(node.value).symlink
+            const resolved = resolveLink(target, linkname, symlink)
+            c.reset()
+            c.setFeed(self.feed)
+            c.setTarget(resolved)
+            depth++
+            return null
+          } else if (depth >= MAX_SYMLINK_DEPTH) {
+            const err = new Error('Reached maximum symlink depth.')
+            err.maxDepth = true
+            throw err
+          }
+          return null
+        }
+
+        return node
+      },
+      finalise (node) {
+        const val = JSON.parse(node.value)
+        if (val.rename) return null
+        node.key = key
+        return node
+      }
+    })
+
+    c.setFeed(this.feed)
+    c.setTarget(key)
+
+    try {
+      const { node, i } = c.update()
+      if (node) {
+        node.value = JSON.parse(node.value)
+      }
+      if (c.handlers.closest) {
+        return { i, node }
+      }
+      return node
+    } catch (err) {
+      if (err.maxDepth) return null
+      throw err
     }
   }
 
-  next () {
-    if (!this.stack) {
-      if (this.handlers.prefix) {
-        const { i, node: head } = this.handlers.get(this.handlers.prefix)
-        if (!head) this.stack = []
-        else this.stack = [{ d: 0, key: this.handlers.prefix.split('/'), i, val: 0, head: this.getSeq(head.seq) }]
-      } else {
-        this.stack = [{ d: 0, key: [], i: 0, val: 0, head: this.getSeq(this.feed.length - 1) }]
+  _getPutInfo (key, val = {}, renaming) {
+    const self = this
+    let depth = 0
+    const isDeletion = val.deletion
+
+    const c = new PutController({
+      onlink (i, val, seq) {
+        const max = isDeletion ? c.target.hash.length - 1 : Infinity
+        if (i >= max) return false
+        return true
+      },
+      onlinkclosest (node) {
+        if (!isDeleteish(node)) return true
+        return node.trie.length > c.j + 1
+      },
+      onclosest (node) {
+        if (!node) return node
+
+        const v = JSON.parse(node.value)
+        const target = c.result.key.toString()
+
+        // 1) Check that you match the symlink/rename
+        // 2) Rename to current target resolved to symlink/rename
+        if (v.rename)  {
+          return null // c.getSeq(node.seq - 1)
+        } else if (v.symlink && shouldFollowLink(c.headKey(), Buffer.from(target)) && depth < MAX_SYMLINK_DEPTH) {
+          const key = c.headKey() // head === node
+          if (target === key) return node
+          const resolved = resolveLink(target, key, v.symlink)
+          c.reset()
+          c.setKey(resolved)
+          c.setFeed(self.feed)
+          depth++
+          return null
+        } else if (depth >= MAX_SYMLINK_DEPTH) {
+          const err = new Error('Reached maximum symlink depth.')
+          err.maxDepth = true
+          throw err
+        }
+        return node
       }
-    }
+    })
 
-    while (this.stack.length) {
-      const node = this.pop()
-      if (node) return node
-    }
+    c.renaming = !!renaming
+    c.setFeed(this.feed)
+    c.setTarget(key)
+    c.setValue(JSON.stringify(val))
 
-    return null
+    try {
+      return c.update()
+    } catch (err) {
+      if (err.maxDepth) return null
+      throw err
+    }
   }
 
-  getSeq (seq) {
-    if (seq <= 0) return null
-    const val = this.feed.get(seq)
-    if (!val) return null
-    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
-    if (this.handlers.onnode) {
-      return this.handlers.onnode(node)
-    }
+  _put (key, value) {
+    const info = this._getPutInfo(key, value)
+    if (!info) return
+
+    const { node, feed } = info
+    feed.append(node)
     return node
   }
-}
 
-class GetController {
-  constructor (handlers) {
-    this.handlers = handlers
-    this.feed = null
-    this.target = null
-    this.i = 0
-    this.head = null
-    this._reset = false
-    this._o = 0
-    this._length = -1
+  put (key, value) {
+    return this._put(key, { value })
   }
 
-  reset () {
-    this.feed = null
-    this.target = null
-    this.i = 0
-    this.head = null
-    this.result = null
-    this._reset = true
-    this._o = 0
+  del (key, opts) {
+    const value = opts && opts.value
+    return this._put(key, { value, deletion: true })
   }
 
-  setFeed (feed) {
-    this.feed = feed
-    this.head = null
-    this.i = 0
-    this._reset = true
-    this._o = 0
+  symlink (target, linkname) {
+    // console.log('LINK CONTAINS?', target, linkname, linkContains(linkname, target))
+    // Cannot link to a subdirectory of the link itself
+    if (linkContains(linkname, target)) return
+
+    const deletion = this.del(linkname)
+    // If the deletion reaches the max depth, then abort immediately.
+    if (!deletion) return
+
+    const node = this._put(linkname, { value: linkname, symlink: target })
+    // TODO: This is a hack because in reality the deletion/symlink should be atomically batched.
+    if (!node) this.feed.data.pop()
   }
 
-  setTarget (key) {
-    if (!Buffer.isBuffer(key)) key = Buffer.from(key)
-    this.target = new Node(key, null, null)
-    if (!this.result) this.result = this.target
-    this.i = 0
-    this._o = 0
-    this._reset = true
-  }
+  rename (from, to) {
+    if (from === to) return
+    const f = this._getPutInfo(from, {}, true)
+    if (!f) return
+    const { node: fromNode, feed: fromFeed } = f
 
-  key () {
-    const r = this.result.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
+    const resolve = this._getPutInfo(to, {}, false)
+    if (!resolve) return
 
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
+    this._put(fromNode.key.toString(), { value: from, deletion: true })
+    const fromSeq = this.feed.length - 1
+    const t = this._getPutInfo(resolve.node.key.toString(), {}, false)
+    if (!t) {
+      this.feed.data.pop()
+      return
+    }
 
-    return t.slice(0, ti).concat(r.slice(ri)).join('/')
-  }
+    const { node: toNode, feed: toFeed } = t
 
-  headKey () {
-    if (this.i === this.target.hash.length) return this.result.key.toString()
-    if (this.head === null) return null
+    const fromHash = new Hash(fromNode.key)
+    const toHash = new Hash(toNode.key)
 
-    const r = this.target.key.toString().split('/')
-    const t = this.head.key.toString().split('/')
-
-    const ri = Math.floor(this.i / 32)
-    const ti = Math.floor((this.i + this._o) / 32)
-
-    const res = r.slice(0, ri).concat(t.slice(ti)).join('/')
-
-    return res
-  }
-
-  update () {
-    for (; this.i < this.target.hash.length; this.i++) {
-      if (!this.head) {
-        this.head = this.getSeq(this.feed.length - 1)
-
-        if (this._reset) {
-          this._reset = false
-          this.i--
-          continue
-        }
+    if (fromNode && fromNode.head && fromNode.headKey === fromNode.key.toString()) {
+      const i = fromNode.hash.length - 1
+      if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
+        fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
       }
-
-      if (!this.head) break
-
-      let val = this.target.hash.get(this.i)
-      const j = this.j = this.i + this._o
-
-      if (val === this.head.hash.get(j) && this.head.trieObject.seq(j, val) === 0) {
-        continue
-      }
-
-      if (j >= this.head.trie.length) break
-
-      const link = this.head.trie[j]
-      if (!link) break
-
-      let seq = link[val]
-      if (!seq) break
-
-      const offset = this.head.trieObject.offset(j, val)
-      if (offset) {
-        this._o += 32 * offset
-        this._length += this._o
-      }
-
-      this.head = this.getSeq(seq)
-
-      if (this._reset) {
-        this._o = 0
-        this._reset = false
-        this.i--
-        continue
+    }
+    let value = null
+    if (fromNode && fromNode.head && JSON.parse(fromNode.head.value).symlink) {
+      if (fromNode.headKey === fromNode.key.toString()) {
+        value = JSON.parse(fromNode.head.value)
       }
     }
 
-    if (this.handlers.onclosest && !this.handlers.closest) {
-      this.head = this.handlers.onclosest(this.head)
-      if (this._reset) {
-        this._reset = false
-        return this.update()
-      }
+    const fromTrie = fromNode.trieBuilder
+      .slice(fromHash.length - 1)
+      .offset(fromHash.length - toHash.length)
+
+    const toTrie = toNode.trieBuilder
+      .slice(0, toHash.length - 1);
+
+    if (toFeed !== fromFeed) throw new Error('Cannot rename across feeds')
+
+    const finalTrie = fromTrie.concat(toTrie)
+
+    if (!finalTrie.isLinking(fromSeq)) { // optimisation, the fromSeq is not reachable
+      this.feed.data.pop()
     }
 
-    if (this.head && this.i >= (this.target.hash.length - (this.handlers.closest ? 1 : 0))) {
-      if (this.handlers.finalise && !this.handlers.closest) this.head = this.handlers.finalise(this.head)
-      return { node: this.head, feed: this.feed, i: this.i }
-    }
-
-    return { node: null, feed: null, i: 0 }
-  }
-
-  getSeq (seq) {
-    if (seq <= 0) return null
-    const val = this.feed.get(seq)
-    if (!val) return null
-    const node = new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
-    if (this.handlers.onnode) {
-      return this.handlers.onnode(node)
-    }
-    return node
-  }
-}
-
-class Node {
-  constructor (key, value, trie, seq) {
-    this.seq = seq
-    this.key = key
-    this.value = value || null
-    this.hash = new HashPath(key)
-    this.trieObject = trie
-    this.trie = trie ? trie.links : []
-    this.trieBuilder = new TrieBuilder()
-  }
-
-  finalise () {
-    const { deflated, links } = this.trieBuilder.finalise()
-    this.trie = links
-
-    return {
-      key: this.key,
-      value: this.value,
+    const { deflated } =  finalTrie.finalise()
+    const node = {
+      key: toNode.key,
+      value: JSON.stringify(value || { rename: fromNode.key.toString() }),
       trie: deflated
     }
+
+    toFeed.append(node)
   }
 
-  static decode (val, seq) {
-    return new Node(val.key, val.value, TrieBuilder.inflateObject(val.trie), seq)
+  mount (path, key, opts) {
+    this._put(path, { value: path, mount: key, opts })
   }
 
   [util.inspect.custom] (depth, opts) {
     const lvl = (opts && opts.indentationLvl) || 0
     const indent = ' '.repeat(lvl)
-    return printNode(this, indent, opts)
+
+    opts = { ...opts, indentationLvl: lvl + 1, feed: this.feed }
+
+    let nodes = ''
+
+    for (let i = 1; i < this.feed.length; i++) {
+      const node = Node.decode(this.feed.get(i), i)
+      nodes += node[util.inspect.custom](depth, opts) + '\n'
+    }
+
+    return indent + 'MockTrie [\n' +
+           nodes +
+           indent + ']'
   }
 }
 
-module.exports.GetController = GetController
-module.exports.PutController = PutController
-module.exports.IteratorController = IteratorController
-module.exports.Node = Node
-
-function printNode (node, indent, opts) {
-  let h = ''
-
-  for (let i = 0; i < node.hash.length; i++) {
-    h += node.hash.get(i)
-  }
-
-  let trie = ''
-
-  if (node.trie) {
-    for (let i = 0; i < node.trie.length; i++) {
-      if (!node.trie[i]) continue
-      const links = node.trie[i]
-      let l = ''
-
-      for (let j = 0; j < links.length; j++) {
-        const seq = links[j]
-        const offset = node.trieObject.offset(i, j)
-        const oStr = offset ? ' (' + (offset < 0 ? offset : ('+' + offset)) + ')' : ''
-        if (seq) l += (l ? ', ' : '') + j + ' -> ' + seq + oStr + (opts && opts.feed ? ' (' + opts.feed.get(seq).key.toString() + ')' : '')
-      }
-
-      trie += indent + '    ' + i + ' -> [' + l + ']\n'
-    }
-  }
-
-  return indent + 'Node {\n'
-    + indent + '  seq: ' + node.seq + '\n'
-    + indent + '  hash: ' + h.replace(/(.{32})/g, '$1 ') + '\n'
-    + indent + '  key: ' + node.key.toString() + '\n'
-    + indent + '  value: ' + (node.value && JSON.stringify(node.value)) + '\n'
-    + indent + '  trie:\n'
-    + trie
-    + indent + '}'
+function isDeleteish (node) {
+  const v = JSON.parse(node.value)
+  return v.rename || v.deletion
 }

@@ -1,4 +1,4 @@
-const MockTrie = require('../trie')
+const MockTrie = require('..')
 console.log(MockTrie)
 const m = new MockTrie()
 

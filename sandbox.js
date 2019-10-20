@@ -1,4 +1,4 @@
-const Trie = require('./trie')
+const Trie = require('.')
 
 const t = new Trie()
 let debug = false
