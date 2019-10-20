@@ -307,7 +307,7 @@ module.exports = class ReferenceTrie {
   rename (from, to, opts = {}) {
     if (from === to) return
     if (typeof from === 'string') from = toPath(from)
-    if (typeof to === 'string') to = toPath(to)
+     if (typeof to === 'string') to = toPath(to)
 
     const debug = false
 
@@ -323,45 +323,6 @@ module.exports = class ReferenceTrie {
 
     this.delete(linkname)
     return this.put(linknamePath, null, { symlink: { target, absolute }, lstat: true })
-  }
-
-  _error (actualKey, expectedKey, actualValue, expectedValue) {
-    const error = new Error('Found a key/value mismatch.')
-    error.mismatch = { actualKey, expectedKey, actualValue, expectedValue }
-    throw error
-  }
-
-  _validate (path, expectedNode, actualNode) {
-    const expectedKey = path
-    const expectedValue = expectedNode ? expectedNode.value : null
-    const actualValue = actualNode ? actualNode.value.value : null
-    if (!expectedValue && !actualValue) return
-
-    if (!actualValue) return this._error(null, path, null, expectedValue)
-    if (!expectedValue) return this._error(actualNode.key, path, actualValue, null)
-
-    if (!actualValue && !expectedValue) return
-    if (!expectedValue) return this._error(actualNode.key, path, actualValue, null)
-
-    if (actualNode.key !== path || actualValue !== expectedValue) {
-      return this._error(actualNode.key, path, actualValue, expectedValue)
-    }
-  }
-
-  async validatePath (path, other) {
-    const key = (typeof path === 'string') ? path : path.join('/')
-    const debug = key === 'd/cb'
-    const expectedNode = this.get(path, { debug })
-    const actualNode = await other.get(key)
-    return this._validate(key, expectedNode, actualNode)
-  }
-
-  validateAllReachable (other) {
-    return this.map(async (path, node, target) => {
-      const expectedNode = node.symlink ? target : node
-      const otherNode = await other.get(path)
-      return this._validate(path, expectedNode, otherNode)
-    })
   }
 
   async print (opts = {}) {
@@ -390,11 +351,4 @@ function toPath (str) {
 
 function fromPath (path) {
   return path.join('/')
-}
-
-function startsWith (a, b) {
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false
-  }
-  return true
 }

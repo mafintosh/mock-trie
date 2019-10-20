@@ -2,6 +2,7 @@ const p = require('path')
 const fs = require('fs')
 const test = require('tape')
 const tmp = require('tmp')
+const deepmerge = require('deepmerge')
 const SandboxPath = require('sandbox-path')
 const FuzzBuzz = require('fuzzbuzz')
 
@@ -9,13 +10,170 @@ const Trie = require('../trie')
 const ReferenceTrie = require('./reference')
 const path = new SandboxPath('/')
 
-const SCAFFOLD_PATH = p.join(__dirname, 'scaffold.js.template')
-const SCAFFOLD = fs.readFileSync(SCAFFOLD_PATH, { encoding: 'utf8' })
+const defaults = require('./defaults')
 
-const KEY_CHARACTERS = 'abcd'
-const VALUE_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz'
+const TEST_ARGS = new Symbol('test-args')
+const TEST_NAME = new Symbol('test-name')
 
-const argv = require('minimist')(process.argv.slice(2))
+class TraceExecutor {
+  constructor (trace) {
+    this.trace = trace
+  }
+
+  get trace () {
+    return this.trace
+  }
+
+  async _exec (inputs, op) {
+    if (!inputs) inputs = op.inputs()
+    await op.operation(...inputs)
+    return inputs
+  }
+
+  async pushAndExecute (op) {
+    const inputs = await this._exec(null, op)
+    this.trace.push({ inputs, op })
+  }
+
+  async replay () {
+    for (const { inputs, op } of this.trace) {
+      await this._exec(inputs, op)
+    }
+  }
+}
+
+class GenericFuzzer {
+  constructor (userConfig, opts = {}) {
+    this.fuzzer = new FuzzBuzz({
+      validate: this.validate.bind(this)
+    })
+    this.rng = this.fuzzer.randomInt.bind(this.fuzzer)
+    this.debug = this.fuzzer.debug.bind(this.fuzzer)
+
+    this.executor = new TraceExecutor([])
+    this.opts = deepmerge(defaults, opts)
+    this._userConfig = userConfig
+
+    this.actual = null
+    this.reference = null
+    this.state = null
+    this.operations = null
+    this.validation = null
+  }
+
+  _wrapOperation (op) {
+    return async () => {
+      this.executor.pushAndExecute(op)
+    }
+  }
+
+  async _setup () {
+    const { actual, reference, state } = await this._userConfig.setup()
+    const operations = this._userConfig.operations(reference, actual, this.rng, this.opts)
+    const validation = this._userConfig.validation(reference, actual, this.rng, this.opts)
+    return { actual, reference, state, operations, validation }
+  }
+
+  async setup () {
+    const { actual, reference, state, operations, validation } = await this._setup()
+    this.actual = actual
+    this.reference = reference
+    this.state = state
+    this.operations = operations
+    this.validation = validation
+
+    for (const name of Object.keys(this.operations)) {
+      const operation = this.operations[name]
+      const config = this.opts.operations[name]
+      if (!config) {
+        console.warn(`Skipping operation ${name} because it does not have a valid configuration`)
+        continue
+      } else if (!config.enabled) {
+        this.debug(`Skipping operation ${name} because it is disabled.`)
+        continue
+      }
+      this.fuzzer.add(config.weight, this._wrapOperation(operation))
+    }
+  }
+
+  run () {
+    try {
+      this.fuzzer.run(this.opts.global.iterations)
+    } catch (err) {
+      return this.shorten(err)
+    }
+  }
+
+  async shorten (err) {
+    this.debug(`attempting to shorten the trace with a maximum of ${this.opts.shortening.iterations} mutations`)
+    var shortestTrace = [ ...this.executor.trace() ]
+    var numShortenings = 0
+    var numIterations = 0
+    const stack = shortestTrace.map((_, i) => { return { i, trace: shortestTrace } })
+    const visited = new Set()
+
+    while (stack.length && numIterations < this._maxShorteningIterations) {
+      const { i, trace } = stack.pop()
+      if (!trace.length) continue
+
+      const nextTrace = [ ...trace ]
+      nextTrace.splice(i, 1)
+
+      const { actual, reference, state, operations, validation } = await this._setup()
+      const executor = new TraceExecutor(nextTrace)
+      const testName = err[GenericFuzzer.TestName]
+      const testArgs = err[GenericFuzzer.TestArgs]
+      const test = validation.tests[testName]
+
+      await executor.replay()
+
+      try {
+        await test(...testArgs)
+      } catch (err) {
+        // Throw if the error was not an expected validation error.
+        if (!err[GenericFuzzer.TestName]) throw err
+        if (nextTrace.length < shortestTrace.length) {
+          stack.push(...nextTrace.map((_, i) => { return { i, trace: nextTrace } }))
+          shortestTrace = nextTrace
+          numShortenings++
+        }
+      }
+      numIterations++
+    }
+
+    this.debug(`shortened the trace by ${numShortenings} operations`)
+    return shortestTrace
+  }
+
+  async validate () {
+    if (!this.validation.validators) return
+    for (const name of Object.keys(this.validation.validators)) {
+      const validator = this.validation.validators[name]
+      const test = this.validation.tests[validator.test]
+      var testArgs = null
+      const wrappedTest = function () {
+        testArgs = arguments
+        return test(...arguments)
+      }
+      try {
+        this.debug(`validating with validator: ${name}`)
+        await validator(wrappedTest)
+      } catch (err) {
+        err[GenericFuzzer.TestArgs] = testArgs
+        err[GenericFuzzer.TestName] = validator.test
+        err[GenericFuzzer.Description] = err.message
+        err[GenericFuzzer.TestFunction] = test
+        throw err
+      }
+    }
+  }
+}
+
+GenericFuzzer.TestName = new Symbol('test-name')
+GenericFuzzer.TestArgs = new Symbol('test-args')
+GenericFuzzer.TestFunction = new Symbol('test-function')
+GenericFuzzer.Description = new Symbol('description')
+GenericFuzzer.Trace = new Symbol('trace')
 
 class TrieFuzzer extends FuzzBuzz {
   constructor (opts) {
@@ -23,44 +181,18 @@ class TrieFuzzer extends FuzzBuzz {
 
     this.trie = new Trie()
     this.reference = new ReferenceTrie()
-    this._maxComponentLength = opts.maxComponentLength || 10
-    this._maxPathDepth = opts.maxPathDepth || 10
+
+    this.operations = new Operations(this, this.trie, this.reference, opts)
+    this.validator = new Validator(this, this.trie, this.reference, opts)
+
     this._syntheticKeys = opts.syntheticKeys || 0
     this._maxShorteningIterations = opts.maxShorteningIterations || 0
-
-    this._trace = []
 
     this.add(2, this.putNormalValue)
     this.add(1, this.createSymlink)
     this.add(1, this.rename)
-    // this.add(1, this.delete)
+    this.add(1, this.delete)
     // this.add(1, this.mount)
-  }
-
-  _generatePair (keyCharacters = KEY_CHARACTERS, valueCharacters = VALUE_CHARACTERS) {
-    const generator = this.randomInt.bind(this)
-    const depth = this.randomInt(this._maxPathDepth + 1) || 1
-    const value = randomString(valueCharacters, generator, 10)
-    const path = new Array(depth).fill(0).map(() => {
-      const length = this.randomInt(this._maxComponentLength + 1) || 1
-      return randomString(keyCharacters, generator, length)
-    })
-    return { path, value }
-  }
-
-  _generateRelativeSymlink () {
-    const { path } = this._generatePair()
-    const numRelativeIndexes = this.randomInt(path.length / 2 + 1)
-    const relativeIndexes = new Array(numRelativeIndexes).fill(0).map(() => this.randomInt(path.length + 1))
-    for (const index of relativeIndexes) {
-      path.splice(index, 0, '..')
-    }
-    return path
-  }
-
-  _generateAbsoluteSymlink () {
-    const { path } = this._generatePair()
-    return path
   }
 
   async putNormalValue () {
@@ -124,23 +256,19 @@ class TrieFuzzer extends FuzzBuzz {
     }
   }
 
-  _executeOp (op, trie, reference) {
-    return Promise.all([
-      this._apply(op, trie),
-      this._apply(op, reference)
-    ])
-  }
-
-  async _executeOps (ops, trie, reference) {
-    for (const op of ops) {
-      await this._executeOp(op, trie, reference)
-    }
-  }
-
   async _validateWithSyntheticKeys () {
     for (let i = 0; i < this._syntheticKeys; i++) {
       const { path } = this._generatePair()
       await this.reference.validatePath(path, this.trie)
+    }
+  }
+
+  async _validateWithIterators () {
+    for (let i = 0;  i < this._syntheticIterators; i++) {
+      const { path: prefix } = this._generatePair()
+      const recursive = !!this.randomInt(1)
+      const gt = !!this.randomInt(1)
+      await this.reference.validateIterator(prefix, this.trie, { recursive, gt })
     }
   }
 
@@ -211,6 +339,7 @@ class TrieFuzzer extends FuzzBuzz {
     try {
       await this.reference.validateAllReachable(this.trie)
       await this._validateWithSyntheticKeys()
+      await this._validateWithIterators()
     } catch (err) {
       if (!err.mismatch) throw err
       const { actualKey, actualValue, expectedKey, expectedValue } = err.mismatch
@@ -287,12 +416,4 @@ async function writeTestCase (testCase) {
       })
     })
   })
-}
-
-function randomString (alphabet, generator, length) {
-  var s = ''
-  for (let i = 0; i < length; i++) {
-    s += alphabet[generator(alphabet.length) || 1]
-  }
-  return s
 }
