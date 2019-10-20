@@ -206,7 +206,7 @@ module.exports = class ReferenceTrie {
       if (!queue.length) return process.nextTick(cb, null)
       const { path, node } = queue.shift()
 
-      if ((path.startsWith(prefix) && recursive) || prefix.startsWith(path)) {
+      if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
         for (const [component, child] of node.children) {
           queue.push({
             path: path === '' ? component : path + '/' + component,
@@ -214,9 +214,12 @@ module.exports = class ReferenceTrie {
           })
         }
       }
-      const validPath = path && path.startsWith(prefix)
+      if (!node.value && !node.symlink) return next(cb)
+
+      const validPath = path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
       if (gt && path === prefix) return next(cb)
-      if (validPath) return process.nextTick(cb, null, { path, node })
+      if (validPath) return process.nextTick(cb, null, { key: path, node })
+
       return next(cb)
     }
   }
@@ -243,23 +246,23 @@ module.exports = class ReferenceTrie {
 
     function map (value, targets, cb) {
       if (!value) return process.nextTick(cb, null)
-      const { path, node } = value
+      const { key, node } = value
       //console.log('path:', path, 'depth:', ite.depth, 'visited?', visited.has(node))
       if (visited.has(node)) return process.nextTick(cb, null)
       visited.add(node)
 
       if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
-        const target = resolveLink(path, path, node.symlink.target)
+        const target = resolveLink(key, key, node.symlink.target)
         //console.log('target:', target)
         ite.push(self._iterator(target, { ...opts, gt: false }), target)
         return process.nextTick(cb, null)
       }
 
       initialized = true
-      const normalizedPath = normalizePath(path, targets)
+      const normalizedPath = normalizePath(key, targets)
 
       if (normalizedPath === prefix && opts.gt) return process.nextTick(cb, null)
-      return process.nextTick(cb, { path: normalizedPath, node })
+      return process.nextTick(cb, null, { key: normalizedPath, node })
     }
 
     function normalizePath (path, targets) {

@@ -170,11 +170,10 @@ class Validators {
     const expectedIterator = this.reference.iterator(path, { gt, recursive})
     const actualIterator = this.actual.iterator(path, { gt, recursive })
     var expectedNodes = await all(expectedIterator)
-    console.log('expectedNodes:', expectedNodes)
     var actualNodes = await all(actualIterator)
     console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
 
-    const expectedMap = buildMap(expectedNodes.map(({ path, node }) => [path, node]))
+    const expectedMap = buildMap(expectedNodes.map(({ key, node }) => [path, node]))
     const actualMap = buildMap(actualNodes.map(node => [node.key, node]))
 
     for (const [key, value] of actualMap) {
@@ -190,6 +189,7 @@ class Validators {
     }
 
     function buildMap (nodes) {
+      console.log('building map of nodes:', nodes)
       const m = new Map()
       for (const [key, node] of nodes) {
         if (m.get(key)) {
@@ -206,7 +206,6 @@ class Validators {
       return new Promise((resolve, reject) => {
         iterator.next(function onnext (err, value) {
           if (err) return reject(err)
-          console.log('iterator returned value:', value)
           if (!value) return resolve(values)
           values.push(value)
           return iterator.next(onnext)
@@ -233,9 +232,8 @@ class Validators {
     const numKeys = this.opts.iterators.keys
     for (let i = 0; i < numKeys; i++) {
       const [ path ] = this.inputs.put()
-      const gt = !!this.generator(2)
-      const recursive = !!this.generator(2)
-
+      const gt = !!this.generator(2) && this.opts.iterators.canBeGT
+      const recursive = !!this.generator(2) && this.opts.iterators.canBeRecursive
       await test(path, { gt, recursive })
     }
   }

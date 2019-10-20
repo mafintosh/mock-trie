@@ -2,6 +2,7 @@ const { IteratorController, GetController, PutController, Node } = require('./li
 const Hash = require('./lib/hash')
 const SandboxPath = require('sandbox-path')
 const MockFeed = require('mock-feed')
+const nanoiterator = require('nanoiterator')
 const util = require('util')
 
 const {
@@ -29,11 +30,22 @@ module.exports = class Trie {
         return self.get(key, { closest: true })
       }
     })
-
     c.setFeed(this.feed)
 
-    return c
+    const ite = nanoiterator({
+      next: cb => {
+        try {
+          const val = c.next()
+          return process.nextTick(cb, null, val)
+        } catch (err) {
+          return process.nextTick(cb, err)
+        }
+      }
+    })
+
+    return ite
   }
+
   get (key, opts) {
     const self = this
     let depth = 0

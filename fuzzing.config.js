@@ -6,7 +6,7 @@ module.exports = {
     maxShorteningIterations: 1e6
   },
   inputs: {
-    maxComponentLength: 10,
+    maxComponentLength: 3,
     maxPathDepth: 5
   },
   operations: {
@@ -37,7 +37,9 @@ module.exports = {
     },
     iterators: {
       enabled: true,
-      keys: 20
+      keys: 200,
+      canBeRecursive: false,
+      canBeGT: false
     }
   }
 }
