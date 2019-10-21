@@ -1,6 +1,6 @@
 const test = require('tape')
-const Trie = require('../../../trie')
-const Reference = require('../../../fuzzing/reference')
+const Trie = require('../../..')
+const Reference = require('../../../reference')
 
 async function applyOperations (trie) {
   await trie.symlink('/c/b/db/d/b','b')
