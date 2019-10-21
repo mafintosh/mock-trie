@@ -1,5 +1,5 @@
 {
-  "name": "generic-fuzzer",
+  "name": "reference-fuzzer",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",

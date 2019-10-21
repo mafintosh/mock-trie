@@ -8,11 +8,13 @@ const tmp = require('tmp')
 const deepmerge = require('deepmerge')
 const FuzzBuzz = require('fuzzbuzz')
 
+const consts = require('./consts')
 const defaults = require('./defaults')
 
 class TraceExecutor {
-  constructor (trace, debug) {
+  constructor (trace, operations, debug) {
     this._trace = trace
+    this.operations = operations
     this.debug = debug
   }
 
@@ -26,10 +28,11 @@ class TraceExecutor {
     return inputs
   }
 
-  async pushAndExecute (name, op) {
+  async pushAndExecute (name) {
+    const op = this.operations[name]
     const inputs = await this._exec(null, op)
     if (this.debug) this.debug(`executing ${name}(${JSON.stringify(inputs)})`)
-    this._trace.push({ inputs, op })
+    this._trace.push({ inputs, name, op })
   }
 
   async replay () {
@@ -53,7 +56,6 @@ class GenericFuzzer extends EventEmitter {
     this.rng = this.fuzzer.randomInt.bind(this.fuzzer)
     this.debug = this.fuzzer.debug.bind(this.fuzzer)
 
-    this.executor = new TraceExecutor([], this.debug)
     this._userFunctions = userFunctions
 
     this.actual = null
@@ -61,11 +63,12 @@ class GenericFuzzer extends EventEmitter {
     this.state = null
     this.operations = null
     this.validation = null
+    this.executor = null
   }
 
-  _wrapOperation (name, op) {
+  _wrapOperation (name) {
     return async () => {
-      this.executor.pushAndExecute(name, op)
+      this.executor.pushAndExecute(name)
       this.emit('progress')
     }
   }
@@ -84,6 +87,7 @@ class GenericFuzzer extends EventEmitter {
     this.state = state
     this.operations = operations
     this.validation = validation
+    this.executor = new TraceExecutor([], this.operations, this.debug)
 
     for (const name of Object.keys(this.operations)) {
       const operation = this.operations[name]
@@ -95,7 +99,7 @@ class GenericFuzzer extends EventEmitter {
         this.debug(`Skipping operation ${name} because it is disabled.`)
         continue
       }
-      this.fuzzer.add(config.weight, this._wrapOperation(name, operation))
+      this.fuzzer.add(config.weight, this._wrapOperation(name))
     }
   }
 
@@ -103,18 +107,33 @@ class GenericFuzzer extends EventEmitter {
     try {
       return this.fuzzer.run(this.opts.numOperations)
     } catch (err) {
-      return this.shorten(err)
+      throw this.shorten(err)
+    }
+  }
+
+  async _test (testName, testFunc, testArgs) {
+    try {
+      await testFunc(...testArgs)
+    } catch (err) {
+      err[consts.TestArgs] = testArgs
+      err[consts.TestName] = testName
+      err[consts.Description] = err.message
+      err[consts.TestFunction] = test
+      err[consts.Config] = this.opts
+      err[consts.FuzzError] = true
+      throw err
     }
   }
 
   async shorten (err) {
     this.debug(`attempting to shorten the trace with a maximum of ${this.opts.shortening.iterations} mutations`)
-    const testName = err[GenericFuzzer.TestName]
-    const testArgs = err[GenericFuzzer.TestArgs]
+    const testName = err[consts.TestName]
+    const testArgs = err[consts.TestArgs]
 
     var shortestTrace = [ ...this.executor.trace() ]
     var numShortenings = 0
     var numIterations = 0
+    var error = err
 
     const stack = shortestTrace.map((_, i) => { return { i, trace: shortestTrace } })
 
@@ -132,25 +151,21 @@ class GenericFuzzer extends EventEmitter {
       await executor.replay()
 
       try {
-        await test(...testArgs)
+        await this._test(testName, test, testArgs)
       } catch (err) {
-        // Throw if the error was not an expected validation error.
-        if (!err[GenericFuzzer.TestName]) throw err
         if (nextTrace.length < shortestTrace.length) {
           stack.push(...nextTrace.map((_, i) => { return { i, trace: nextTrace } }))
           shortestTrace = nextTrace
           numShortenings++
+          error = err
         }
       }
       numIterations++
     }
 
     this.debug(`shortened the trace by ${numShortenings} operations`)
-    return {
-      trace: shortestTrace,
-      testName,
-      testArgs
-    }
+    err[consts.Trace] = shortestTrace
+    return err
   }
 
   async validate () {
@@ -170,21 +185,19 @@ class GenericFuzzer extends EventEmitter {
         this.debug(`validating with validator: ${name}`)
         await validator.operation(wrappedTest)
       } catch (err) {
-        err[GenericFuzzer.TestArgs] = testArgs
-        err[GenericFuzzer.TestName] = validator.test
-        err[GenericFuzzer.Description] = err.message
-        err[GenericFuzzer.TestFunction] = test
+        err[consts.TestArgs] = testArgs
+        err[consts.TestName] = validator.test
+        err[consts.Description] = err.message
+        err[consts.TestFunction] = test
+        err[consts.Config] = this.opts
+        err[consts.FuzzError] = true
+        err[consts.Trace] = this.executor.trace
         throw err
       }
     }
   }
 }
 
-GenericFuzzer.TestName = Symbol('test-name')
-GenericFuzzer.TestArgs = Symbol('test-args')
-GenericFuzzer.TestFunction = Symbol('test-function')
-GenericFuzzer.Description = Symbol('description')
-GenericFuzzer.Trace = Symbol('trace')
 
 function create (userFunctions, userConfig) {
   const opts = deepmerge(defaults, userConfig)
