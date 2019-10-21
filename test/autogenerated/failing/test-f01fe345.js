@@ -5,24 +5,29 @@ const testSetup = require('reference-fuzzer/test')
 async function getObjects () {
   const { actual, reference, state, executor: op, validators } = await testSetup('/home/andrewosh/Development/mock-trie/fuzzing.js')
 
-  await op.put("d/bdc/bb","scsjhvvoer")
+  await op.put("c/bc/dbb/d","pljeqhtgud")
 
   return { actual, reference, state, tests: validators.tests }
 }
 
 function runTests () {
-  test('iterator returned 1 keys but should return 2 keys', async t => {
+  test('iterator should not return unexpected key c', async t => {
     const { tests } = await getObjects()
 
-    t.error(await tests.sameIterators("d",{"gt":false,"recursive":true}))
+    try {
+      await tests.sameIterators("c",{"gt":false,"recursive":true})
+      t.pass('fuzz test passed')
+    } catch (err) {
+      t.fail(err)
+    }
     t.end()
   })
 }
 
 const config = {
  "seed": "mock-trie",
- "numIterations": 1000,
- "numOperations": 50,
+ "numIterations": 2000,
+ "numOperations": 10,
  "shortening": {
   "iterations": 1000000
  },
@@ -64,7 +69,6 @@ const config = {
   }
  }
 }
-const signature = 'c87fb1e2580c2d9b3532124ab4e6fe6f05639ad30d4dfe1ad9bd483ca4a449ed'
 
 if (require.main) {
   runTests()
@@ -76,4 +80,5 @@ if (require.main) {
   }
 }
 
-// @FUZZ_SIGNATURE c87fb1e2580c2d9b3532124ab4e6fe6f05639ad30d4dfe1ad9bd483ca4a449ed
+// Warning: Do not modify the signature below! It is used to deduplicate fuzz tests.
+// @FUZZ_SIGNATURE f01fe345a5fcfa9f78565230fc09bde6364a7dca2b04ef8963b837869e314df5
