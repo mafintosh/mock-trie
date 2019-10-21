@@ -164,16 +164,20 @@ class Validators {
     const self = this
     const gt = !!opts.gt
     const recursive = !!opts.recursive
-    console.log('in sameIterators, path:', path, 'gt:', gt, 'recursive:', recursive)
+    //console.log('in sameIterators, path:', path, 'gt:', gt, 'recursive:', recursive)
 
     const expectedIterator = this.reference.iterator(path, { gt, recursive})
     const actualIterator = this.actual.iterator(path, { gt, recursive })
     var expectedNodes = await all(expectedIterator)
     var actualNodes = await all(actualIterator)
-    console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
+    //console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
 
-    const expectedMap = buildMap(expectedNodes.map(({ key, node }) => [path, node]))
+    const expectedMap = buildMap(expectedNodes.map(({ key, node }) => [key, node]))
     const actualMap = buildMap(actualNodes.map(node => [node.key, node]))
+    const expectedSize = expectedMap.size
+    const actualSize = actualMap.size
+
+    //console.log('actualMap:', actualMap, 'expectedMap:', expectedMap)
 
     for (const [key, value] of actualMap) {
       if (!expectedMap.get(key)) {
@@ -183,12 +187,12 @@ class Validators {
       expectedMap.delete(key)
     }
     if (expectedMap.size) {
-      const message = `iterator should return ${expectedMap.size} keys`
+      const message = `iterator returned ${expectedSize - expectedMap.size} keys but should return ${expectedSize} keys`
       return this._iteratorError(message, path, opts, actualNodes, expectedNodes)
     }
 
     function buildMap (nodes) {
-      console.log('building map of nodes:', nodes)
+      // console.log('building map of nodes:', nodes)
       const m = new Map()
       for (const [key, node] of nodes) {
         if (m.get(key)) {
@@ -228,11 +232,12 @@ class Validators {
   }
 
   async iterators (test) {
-    const numKeys = this.opts.iterators.keys
+    const opts = this.opts.iterators
+    const numKeys = opts.keys
     for (let i = 0; i < numKeys; i++) {
       const [ path ] = this.inputs.put()
-      const gt = !!this.generator(2) && this.opts.iterators.canBeGT
-      const recursive = !!this.generator(2) && this.opts.iterators.canBeRecursive
+      const gt = (opts.gt !== undefined) ? opts.gt : !!this.generator(2)
+      const recursive = (opts.recursive !== undefined) ? opts.recursive : !!this.generator(2)
       await test(path, { gt, recursive })
     }
   }

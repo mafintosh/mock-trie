@@ -3,7 +3,7 @@ module.exports = {
   numIterations: 2000,
   numOperations: 10,
   shortening: {
-    maxShorteningIterations: 1e6
+    iterations: 1e6
   },
   inputs: {
     maxComponentLength: 3,
@@ -33,13 +33,13 @@ module.exports = {
     },
     syntheticKeys: {
       enabled: true,
-      keys: 20
+      keys: 2000
     },
     iterators: {
       enabled: true,
       keys: 200,
-      canBeRecursive: false,
-      canBeGT: false
+      recursive: true,
+      gt: false,
     }
   }
 }

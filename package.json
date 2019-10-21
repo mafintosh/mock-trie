@@ -15,8 +15,7 @@
     "reference-fuzzer": "^0.9.0",
     "sandbox-path": "^1.0.1",
     "stackable-nanoiterator": "^1.2.0",
-    "tape": "^4.11.0",
-    "tmp": "^0.1.0"
+    "tape": "^4.11.0"
   },
   "scripts": {
     "test": "tape test/*.js",
