@@ -3,7 +3,8 @@ const test = require('tape')
 const testSetup = require('reference-fuzzer/test')
 
 async function getObjects () {
-  const { actual, reference, state, executor: op, validators } = await testSetup('/home/andrewosh/Development/mock-trie/fuzzing.js')
+  const testingModule = require('../../../fuzzing.js')
+  const { actual, reference, state, executor: op, validators } = await testSetup(testingModule)
 
   await op.put("c/bc/dbb/d","pljeqhtgud")
 
