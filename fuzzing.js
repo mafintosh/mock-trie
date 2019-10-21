@@ -121,7 +121,6 @@ class Operations {
 
 class Validators {
   constructor (generator, inputs, reference, actual, opts = {}) {
-    console.log('opts in validators:', opts)
     this.generator = generator
     this.inputs = inputs
     this.reference = reference
