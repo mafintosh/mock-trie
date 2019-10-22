@@ -20,8 +20,8 @@ const stack = []
 
 const c = t.iterator('renamed')
 
-while (true) {
-  const node = c.next()
-  console.log(node)
+c.next(function loop (err, node) {
   if (!node) return
-}
+  console.log(node)
+  c.next(loop)
+})
