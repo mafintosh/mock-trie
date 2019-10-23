@@ -129,14 +129,15 @@ class Validators {
   }
 
   _getError (actualKey, expectedKey, actualValue, expectedValue) {
-    const error = new Error(`getting key ${expectedKey} to return ${expectedValue}`)
-    error.mismatch = { actualKey, expectedKey, actualValue, expectedValue}
+    const message = `getting key ${expectedKey} should return ${expectedValue}`
+    const error = new Error(message)
     throw error
   }
 
-  _iteratorError (message, prefix, opts, actualNodes, expectedNodes) {
+  _iteratorError (message, prefix, opts, actualMap, expectedMap) {
+    const longDescription = `\nactualNodes: ${JSON.stringify([...actualMap], null, 1)}\nexpectedNodes: ${JSON.stringify([...expectedMap], null, 1)}\n`
     const error = new Error(message)
-    error.mismatch = { actualNodes, expectedNodes, prefix, opts}
+    error.longDescription = longDescription
     throw error
   }
 
@@ -173,6 +174,7 @@ class Validators {
     //console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
 
     const expectedMap = buildMap(expectedNodes.map(({ key, node }) => [key, node]))
+    const originalExpectedMap = new Map([...expectedMap])
     const actualMap = buildMap(actualNodes.map(node => [node.key, node]))
     const expectedSize = expectedMap.size
     const actualSize = actualMap.size
@@ -182,13 +184,13 @@ class Validators {
     for (const [key, value] of actualMap) {
       if (!expectedMap.get(key)) {
         const message = `iterator should not return unexpected key ${key}`
-        return this._iteratorError(message, path, opts, actualNodes, expectedNodes)
+        return this._iteratorError(message, path, opts, actualMap, originalExpectedMap)
       }
       expectedMap.delete(key)
     }
     if (expectedMap.size) {
       const message = `iterator returned ${expectedSize - expectedMap.size} keys but should return ${expectedSize} keys`
-      return this._iteratorError(message, path, opts, actualNodes, expectedNodes)
+      return this._iteratorError(message, path, opts, actualMap, originalExpectedMap)
     }
 
     function buildMap (nodes) {
@@ -197,7 +199,7 @@ class Validators {
       for (const [key, node] of nodes) {
         if (m.get(key)) {
           const message = `iterator should not return duplicate key ${key}`
-          return self._iteratorError(message, path, opts, actualNodes, expectedNodes)
+          return self._iteratorError(message, path, opts, actualMap, originalExpectedMap)
         }
         m.set(key, node)
       }
