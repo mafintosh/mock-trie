@@ -242,10 +242,10 @@ module.exports = class ReferenceTrie {
     var recursive = !!opts.recursive
     var initialized = false
 
-    ite.push(this._iterator(prefix, { ...opts, gt: false }), prefix)
+    ite.push(this._iterator(prefix, { ...opts, gt: false }), { prefix: '', target: ''})
     return ite
 
-    function map (value, targets, cb) {
+    function map (value, jumps, cb) {
       //console.log('value here:', value)
       if (!value) return process.nextTick(cb, null)
       const { key, node } = value
@@ -255,27 +255,24 @@ module.exports = class ReferenceTrie {
 
       if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
         const target = resolveLink(key, key, node.symlink.target)
-        //console.log('target:', target)
-        ite.push(self._iterator(target, { ...opts, gt: false }), target)
+        ite.push(self._iterator(target, { ...opts, gt: false }), { prefix: key, target })
         return process.nextTick(cb, null)
       }
 
       initialized = true
-      const normalizedPath = normalizePath(key, targets)
+      const normalizedPath = normalizePath(key, jumps)
 
       if (normalizedPath === prefix && opts.gt) return process.nextTick(cb, null)
       return process.nextTick(cb, null, { key: normalizedPath, node })
     }
 
-    function normalizePath (path, targets) {
-      //console.log('normalizing path:', path, 'targets:', targets)
+    function normalizePath (path, jumps) {
+      //console.log('normalizing path:', path, 'jumps:', jumps)
       var normalizedPath = path
-      for (let i = 0; i < targets.length - 1; i++) {
-        const currentTarget = targets[i]
-        const previousTarget = targets[i + 1]
-        //console.log('currentTarget:', currentTarget, 'previousTarget:', previousTarget,'path:', path, 'normalized:', normalizedPath)
-        normalizedPath = previousTarget + normalizedPath.slice(currentTarget.length)
+      for (let { prefix, target } of jumps) {
+        normalizedPath = prefix + normalizedPath.slice(target.length)
       }
+      //console.log('normalized:', normalizedPath)
       return normalizedPath
     }
   }
