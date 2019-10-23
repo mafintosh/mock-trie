@@ -173,11 +173,11 @@ class Validators {
     var actualNodes = await all(actualIterator)
     //console.log('actualNodes:', actualNodes, 'expectedNodes:', expectedNodes)
 
-    const expectedMap = buildMap(expectedNodes.map(({ key, node }) => [key, node]))
-    const originalExpectedMap = new Map([...expectedMap])
-    const actualMap = buildMap(actualNodes.map(node => [node.key, node]))
-    const expectedSize = expectedMap.size
-    const actualSize = actualMap.size
+    var expectedMap = buildMap(expectedNodes.map(({ key, node }) => [key, node]))
+    var originalExpectedMap = new Map([...expectedMap])
+    var actualMap = buildMap(actualNodes.map(node => [node.key, node]))
+    var expectedSize = expectedMap.size
+    var actualSize = actualMap.size
 
     //console.log('actualMap:', actualMap, 'expectedMap:', expectedMap)
 
@@ -194,12 +194,11 @@ class Validators {
     }
 
     function buildMap (nodes) {
-      // console.log('building map of nodes:', nodes)
       const m = new Map()
       for (const [key, node] of nodes) {
         if (m.get(key)) {
           const message = `iterator should not return duplicate key ${key}`
-          return self._iteratorError(message, path, opts, actualMap, originalExpectedMap)
+          return self._iteratorError(message, path, opts, actualNodes, originalExpectedMap)
         }
         m.set(key, node)
       }
