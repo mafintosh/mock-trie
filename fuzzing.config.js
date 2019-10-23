@@ -7,7 +7,7 @@ module.exports = {
   },
   inputs: {
     maxComponentLength: 3,
-    maxPathDepth: 5
+    maxPathDepth: 4
   },
   operations: {
     put: {

@@ -203,6 +203,7 @@ module.exports = class ReferenceTrie {
     return nanoiterator({ next })
 
     function next (cb) {
+      //console.log('queue here:', queue)
       if (!queue.length) return process.nextTick(cb, null)
       const { path, node } = queue.shift()
 
@@ -245,9 +246,10 @@ module.exports = class ReferenceTrie {
     return ite
 
     function map (value, targets, cb) {
+      //console.log('value here:', value)
       if (!value) return process.nextTick(cb, null)
       const { key, node } = value
-      //console.log('path:', path, 'depth:', ite.depth, 'visited?', visited.has(node))
+      //console.log('path:', key, 'depth:', ite.depth, 'visited?', visited.has(node))
       if (visited.has(node)) return process.nextTick(cb, null)
       visited.add(node)
 
