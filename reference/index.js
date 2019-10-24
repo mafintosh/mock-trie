@@ -192,13 +192,14 @@ module.exports = class ReferenceTrie {
   }
 
   // This is a non-symlink aware iterator.
-  _iterator (prefix, opts = {}) {
+  _iterator (startingNode, prefix, opts = {}) {
     if (!prefix) prefix = ''
     const recursive = !!opts.recursive
     const gt = !!opts.gt
 
     const queue = []
-    queue.push({ path: '', node: this.root })
+    //console.log('starting node:', startingNode, 'prefix:', prefix)
+    queue.push({ path: prefix, node: startingNode })
 
     return nanoiterator({ next })
 
@@ -206,6 +207,7 @@ module.exports = class ReferenceTrie {
       //console.log('queue here:', queue)
       if (!queue.length) return process.nextTick(cb, null)
       const { path, node } = queue.shift()
+      //console.log('path:', path, 'node:', node)
 
       if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
         for (const [component, child] of node.children) {
@@ -217,7 +219,8 @@ module.exports = class ReferenceTrie {
       }
       if (!node.value && !node.symlink) return next(cb)
 
-      const validPath = path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
+      const validPath = !!path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
+      //console.log('validPath:', validPath, 'path:', path, 'prefix:', prefix)
       if (gt && path === prefix) return next(cb)
       if (validPath) return process.nextTick(cb, null, { key: path, node })
 
@@ -233,6 +236,11 @@ module.exports = class ReferenceTrie {
     }
     if (!prefix) prefix = ''
 
+    const startingNode = this._get(prefix.split('/'), this.root)
+    if (!startingNode || !startingNode.node) return {
+      next: cb => cb(null, null)
+    }
+
     const self = this
     const ite = new StackIterator({
       maxDepth: MAX_SYMLINK_DEPTH + 1,
@@ -241,7 +249,7 @@ module.exports = class ReferenceTrie {
     var recursive = !!opts.recursive
     var initialized = false
 
-    ite.push(this._iterator(prefix, { ...opts, gt: false }), { prefix: '', target: ''})
+    ite.push(this._iterator(startingNode.node, prefix, { ...opts, gt: false }), { prefix, target: prefix })
     return ite
 
     function map (value, jumps, cb) {
@@ -252,13 +260,16 @@ module.exports = class ReferenceTrie {
 
       if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
         const target = resolveLink(key, key, node.symlink.target)
-        ite.push(self._iterator(target, { ...opts, gt: false }), { prefix: key, target })
+        const targetNode = self._get(target.split('/'), self.root)
+        if (!targetNode || !targetNode.node) return process.nextTick(cb, null)
+        ite.push(self._iterator(targetNode.node, target, { ...opts, gt: false }), { prefix: key, target })
         return process.nextTick(cb, null)
       }
 
       initialized = true
       const normalizedPath = normalizePath(key, jumps)
 
+      //console.log('normalized path before return:', normalizedPath)
       if (normalizedPath === prefix && opts.gt) return process.nextTick(cb, null)
       return process.nextTick(cb, null, { key: normalizedPath, node })
     }
