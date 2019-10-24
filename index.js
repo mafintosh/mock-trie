@@ -28,6 +28,11 @@ module.exports = class Trie {
       prefix,
       get (key) {
         return self.get(key, { closest: true })
+      },
+      realpath (key) {
+        const resolve = self._getPutInfo(key, {}, false)
+        if (!resolve || !resolve.node) return null
+        return resolve.node.key.toString()
       }
     })
     c.setFeed(this.feed)
