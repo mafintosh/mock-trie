@@ -13,7 +13,7 @@ async function getObjects () {
 }
 
 function runTests () {
-  test('iterator should not return unexpected key d/b/dbd', async t => {
+  test('iterator should return expected key d/b/dbd', async t => {
     const { tests } = await getObjects()
 
     try {
