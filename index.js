@@ -232,16 +232,17 @@ module.exports = class Trie {
     const fromHash = new Hash(fromNode.key)
     const toHash = new Hash(toNode.key)
 
-    if (fromNode && fromNode.head && fromNode.headKey === fromNode.key.toString()) {
-      const i = fromNode.hash.length - 1
-      if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
-        fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
-      }
-    }
     let value = null
     if (fromNode && fromNode.head && JSON.parse(fromNode.head.value).symlink) {
       if (fromNode.headKey === fromNode.key.toString()) {
         value = JSON.parse(fromNode.head.value)
+      }
+    }
+
+    if (!value && fromNode && fromNode.head && fromNode.headKey === fromNode.key.toString()) {
+      const i = fromNode.hash.length - 1
+      if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
+        fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
       }
     }
 
