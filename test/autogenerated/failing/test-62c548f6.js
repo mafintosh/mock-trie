@@ -14,7 +14,7 @@ async function getObjects () {
 }
 
 function runTests () {
-  test('actualMap is not iterable', async t => {
+  test('iterator should not return duplicate key cc/b/c/c', async t => {
     const { tests } = await getObjects()
 
     try {
@@ -22,13 +22,16 @@ function runTests () {
       t.pass('fuzz test passed')
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
-      t.fail(err, 'actualMap is not iterable')
+      t.fail(err, 'iterator should not return duplicate key cc/b/c/c')
     }
     t.end()
   })
 }
 
-const config = {
+module.exports = {
+  runTests,
+  getObjects,
+  config: {
  "seed": "mock-trie105",
  "numIterations": 2000,
  "numOperations": 10,
@@ -72,16 +75,10 @@ const config = {
    "gt": false
   }
  }
+},
 }
-
-if (require.main) {
+if (require.main && !process.env['FUZZ_DISABLE_TEST']) {
   runTests()
-} else {
-  module.exports = {
-    runTests,
-    getObjects,
-    config,
-  }
 }
 
 // Warning: Do not modify the signature below! It is used to deduplicate fuzz tests.
