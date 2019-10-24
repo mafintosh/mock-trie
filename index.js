@@ -32,7 +32,7 @@ module.exports = class Trie {
       realpath (key) {
         const resolve = self._getPutInfo(key, {}, false)
         if (!resolve || !resolve.node) return null
-        return resolve.node.key.toString()
+        return { key: resolve.node.key.toString(), depth: resolve.depth }
       }
     })
     c.setFeed(this.feed)
@@ -118,7 +118,7 @@ module.exports = class Trie {
         node.value = JSON.parse(node.value)
       }
       if (c.handlers.closest) {
-        return { i, node, offset }
+        return { i, node, offset, depth }
       }
       return node
     } catch (err) {
@@ -176,7 +176,9 @@ module.exports = class Trie {
     c.setValue(JSON.stringify(val))
 
     try {
-      return c.update()
+      const r = c.update()
+      if (r) r.depth = depth
+      return r
     } catch (err) {
       if (err.maxDepth) return null
       throw err

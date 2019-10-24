@@ -11,16 +11,6 @@ async function getObjects () {
   await op.put("c/ccc/b/bc","herbjwdwwb")
   await op.rename("bbd","c/d")
 
-const i = actual.iterator('c')
-
-i.next(console.log)
-i.next(console.log)
-i.next(console.log)
-
-// console.log(reference.get('c/d/d/d/d/d/d/d/d/d/d/ccc/b/bc'))
-
-return new Promise(() => {})
-
   return { actual, reference, state, tests: validators.tests }
 }
 
