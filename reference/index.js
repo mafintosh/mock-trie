@@ -1,5 +1,4 @@
 const util = require('util')
-const StackIterator = require('stackable-nanoiterator')
 const nanoiterator = require('nanoiterator')
 
 const {
@@ -58,7 +57,7 @@ module.exports = class ReferenceTrie {
     if (next.symlink && opts.lstat && path.length === 1) return finalize(next)
 
     if (next.symlink) {
-      if (linkDepth > MAX_SYMLINK_DEPTH) return null
+      if (linkDepth >= MAX_SYMLINK_DEPTH) return null
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
@@ -117,7 +116,7 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
 
     if (next.symlink) {
-      if (linkDepth > MAX_SYMLINK_DEPTH) {
+      if (linkDepth >= MAX_SYMLINK_DEPTH) {
         key = null
         return finalize(null)
       }
@@ -170,7 +169,7 @@ module.exports = class ReferenceTrie {
     const stack = [{ depth: 0, path: '', node: this.root }]
     while (stack.length) {
       const { depth, path, node } = stack.pop()
-      if (!node || depth > MAX_SYMLINK_DEPTH) continue
+      if (!node || depth >= MAX_SYMLINK_DEPTH) continue
 
       if (visited.has(node)) continue
       visited.add(node)
@@ -196,6 +195,7 @@ module.exports = class ReferenceTrie {
     if (!prefix) prefix = ''
     const recursive = !!opts.recursive
     const gt = !!opts.gt
+    const self = this
 
     const queue = []
     //console.log('starting node:', startingNode, 'prefix:', prefix)
@@ -211,10 +211,15 @@ module.exports = class ReferenceTrie {
 
       if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
         for (const [component, child] of node.children) {
-          queue.push({
-            path: path === '' ? component : path + '/' + component,
-            node: child
-          })
+          const p = path === '' ? component : path + '/' + component
+          const n = self._get(p.split('/'), self.root)
+
+          if (n && n.node) {
+            queue.push({
+              path: p,
+              node: n.node
+            })
+          }
         }
       }
       if (!node.value && !node.symlink) return next(cb)
@@ -228,7 +233,6 @@ module.exports = class ReferenceTrie {
     }
   }
 
-  // This is a symlink-aware iterator.
   iterator (prefix, opts = {}) {
     if (prefix && typeof prefix !== 'string') {
       opts = prefix
@@ -241,48 +245,7 @@ module.exports = class ReferenceTrie {
       next: cb => cb(null, null)
     }
 
-    const self = this
-    const ite = new StackIterator({
-      maxDepth: MAX_SYMLINK_DEPTH + 1,
-      map,
-    })
-    var recursive = !!opts.recursive
-    var initialized = false
-
-    ite.push(this._iterator(startingNode.node, prefix, { ...opts, gt: false }), { prefix, target: prefix })
-    return ite
-
-    function map (value, jumps, cb) {
-      //console.log('value here:', value)
-      if (!value) return process.nextTick(cb, null)
-      const { key, node } = value
-      //console.log('path:', key, 'depth:', ite.depth, 'visited?', visited.has(node))
-
-      if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
-        const target = resolveLink(key, key, node.symlink.target)
-        const targetNode = self._get(target.split('/'), self.root)
-        if (!targetNode || !targetNode.node) return process.nextTick(cb, null)
-        ite.push(self._iterator(targetNode.node, target, { ...opts, gt: false }), { prefix: key, target })
-        return process.nextTick(cb, null)
-      }
-
-      initialized = true
-      const normalizedPath = normalizePath(key, jumps)
-
-      //console.log('normalized path before return:', normalizedPath)
-      if (normalizedPath === prefix && opts.gt) return process.nextTick(cb, null)
-      return process.nextTick(cb, null, { key: normalizedPath, node })
-    }
-
-    function normalizePath (path, jumps) {
-      //console.log('normalizing path:', path, 'jumps:', jumps)
-      var normalizedPath = path
-      for (let { prefix, target } of jumps) {
-        normalizedPath = prefix + normalizedPath.slice(target.length)
-      }
-      //console.log('normalized:', normalizedPath)
-      return normalizedPath
-    }
+    return this._iterator(startingNode.node, prefix, opts)
   }
 
   put (path, value, opts = {})  {
