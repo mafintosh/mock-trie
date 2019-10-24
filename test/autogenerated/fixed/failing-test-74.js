@@ -13,7 +13,7 @@ async function getObjects () {
 }
 
 function runTests () {
-  test('Cannot destructure property `i` of 'undefined' or 'null'.', async t => {
+  test("Cannot destructure property `i` of 'undefined' or 'null'.", async t => {
     const { tests } = await getObjects()
 
     try {
@@ -21,7 +21,8 @@ function runTests () {
       t.pass('fuzz test passed')
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
-      t.fail(err, 'Cannot destructure property `i` of 'undefined' or 'null'.')
+        console.log(err)
+      t.fail(err, "Cannot destructure property `i` of 'undefined' or 'null'.")
     }
     t.end()
   })
