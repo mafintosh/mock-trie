@@ -234,9 +234,8 @@ module.exports = class ReferenceTrie {
     if (!prefix) prefix = ''
 
     const self = this
-    const visited = new Set()
     const ite = new StackIterator({
-      maxDepth: MAX_SYMLINK_DEPTH,
+      maxDepth: MAX_SYMLINK_DEPTH + 1,
       map,
     })
     var recursive = !!opts.recursive
@@ -250,8 +249,6 @@ module.exports = class ReferenceTrie {
       if (!value) return process.nextTick(cb, null)
       const { key, node } = value
       //console.log('path:', key, 'depth:', ite.depth, 'visited?', visited.has(node))
-      if (visited.has(node)) return process.nextTick(cb, null)
-      visited.add(node)
 
       if (node.symlink && (recursive || ite.depth === 1 || !initialized)) {
         const target = resolveLink(key, key, node.symlink.target)
