@@ -7,12 +7,14 @@ const {
 } = require('../lib/paths')
 
 const MAX_SYMLINK_DEPTH = 20
+let ID = 0
 
 class TrieNode {
   constructor (key, value, opts = {}) {
     this.value = value
     this.symlink = opts.symlink
     this.children = new Map()
+    this.id = ++ID
   }
 
   clone () {
@@ -114,15 +116,9 @@ module.exports = class ReferenceTrie {
     if (!next) return finalize(null)
 
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
+    if (opts.resolveLinks === false && next.symlink) return finalize(next)
 
     if (next.symlink) {
-      if (opts.visited) {
-        if (opts.visited.has(next)) {
-          // console.log('cycle', next.symlink)
-          return finalize(null)
-        }
-        opts.visited.add(next)
-      }
       if (linkDepth >= MAX_SYMLINK_DEPTH) {
         key = null
         return finalize(null)
@@ -131,6 +127,23 @@ module.exports = class ReferenceTrie {
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
       const resolved = resolveLink(target, key, linkTarget)
+
+      const firstNode = this._get(toPath(resolved), this.root, {
+        ...opts,
+        linkDepth: linkDepth + 1,
+        target: resolved,
+        key: null,
+        resolveLinks: false
+      })
+
+      if (opts.visited) {
+        const id = next.id + '+' + (firstNode && firstNode.node ? firstNode.node.id : 0)
+        if (opts.visited.has(id)) {
+          // console.log('cycle', next.symlink)
+          return finalize(null)
+        }
+        opts.visited.add(id)
+      }
 
       return this._get(toPath(resolved), this.root, {
         ...opts,
@@ -199,6 +212,7 @@ module.exports = class ReferenceTrie {
 
   _iterator (startingNode, prefix, opts = {}) {
     if (!prefix) prefix = ''
+    const cut = prefix ? prefix.split('/').length : 0
     const recursive = !!opts.recursive
     const gt = !!opts.gt
     const self = this
@@ -219,7 +233,8 @@ module.exports = class ReferenceTrie {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
             const visited = new Set()
-            const n = self._get(p.split('/'), startingNode, { visited, root: self.root })
+            const n = self._get(p.split('/').slice(cut), startingNode, { visited, root: self.root })
+
             if (n && n.node) {
               queue.push({
                 path: p,
