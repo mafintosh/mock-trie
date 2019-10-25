@@ -6,36 +6,38 @@ async function getObjects () {
   const testingModule = require('../../../fuzzing.js')
   const { actual, reference, state, executor: op, validators } = await testSetup(testingModule)
 
-  await op.put("c/bc/dbb/d","pljeqhtgud")
+  await op.symlink("d","bbb")
+  await op.symlink("/bbb/c","d/bbc")
+  await op.put("d/c","nbbzttjhhs")
 
   return { actual, reference, state, tests: validators.tests }
 }
 
 function runTests () {
-  test('iterator should not return unexpected key c', async t => {
+  test('"iterator should not return unexpected key bbb/bbc"', async t => {
     const { tests } = await getObjects()
 
     try {
-      await tests.sameIterators("c",{"gt":false,"recursive":true})
+      await tests.sameIterators("bbb",{"gt":false,"recursive":true})
       t.pass('fuzz test passed')
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
-      t.fail(err)
+      t.fail(err, '"iterator should not return unexpected key bbb/bbc"')
     }
     t.end()
   })
 }
 
 const config = {
- "seed": "mock-trie",
- "numIterations": 2000,
- "numOperations": 10,
+ "seed": "fuzzing-",
+ "numIterations": 10000,
+ "numOperations": 100,
  "shortening": {
   "iterations": 1000000
  },
  "inputs": {
   "maxComponentLength": 3,
-  "maxPathDepth": 5
+  "maxPathDepth": 4
  },
  "operations": {
   "put": {
@@ -69,18 +71,19 @@ const config = {
    "recursive": true,
    "gt": false
   }
- }
+ },
+ "seedNumber": 2
 }
 
-if (require.main) {
+module.exports = {
+  runTests,
+  getObjects,
+  config,
+}
+if (require.main && !process.env['FUZZ_DISABLE_TEST']) {
   runTests()
-} else {
-  module.exports = {
-    runTests,
-    getObjects,
-    config,
-  }
 }
 
 // Warning: Do not modify the signature below! It is used to deduplicate fuzz tests.
-// @FUZZ_SIGNATURE f01fe345a5fcfa9f78565230fc09bde6364a7dca2b04ef8963b837869e314df5
+// @FUZZ_SIGNATURE 7c2aa1215eaa8786b4f6997333b9e16552ac78f0e06dc4b461d6ca238b7fa521
+// @FUZZ_TIMESTAMP Fri Oct 25 2019 16:29:51 GMT+0200 (Central European Summer Time)

@@ -116,6 +116,10 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
 
     if (next.symlink) {
+      if (opts.visited) {
+        if (opts.visited.has(next)) return finalize(null)
+        opts.visited.add(next)
+      }
       if (linkDepth >= MAX_SYMLINK_DEPTH) {
         key = null
         return finalize(null)
@@ -198,25 +202,23 @@ module.exports = class ReferenceTrie {
 
     const queue = []
     //console.log('starting node:', startingNode, 'prefix:', prefix)
-    queue.push({ path: prefix, node: startingNode, pathSet: new Set([startingNode]) })
+    queue.push({ path: prefix, node: startingNode })
 
     return nanoiterator({ next })
 
     function next (cb) {
       if (!queue.length) return process.nextTick(cb, null)
       while (queue.length) {
-        const { path, node, pathSet } = queue.shift()
+        const { path, node } = queue.shift()
         if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
-            const n = self._get(p.split('/'), self.root)
-
-            if (n && n.node && !pathSet.has(n.node)) {
-              const childSet = new Set([...pathSet, n.node])
+            const visited = new Set()
+            const n = self._get(p.split('/'), self.root, { visited })
+            if (n && n.node) {
               queue.push({
                 path: p,
                 node: n.node,
-                pathSet: childSet
               })
             }
           }
@@ -228,7 +230,7 @@ module.exports = class ReferenceTrie {
         if (gt && path === prefix) continue
         if (validPath) return process.nextTick(cb, null, { key: path, node })
       }
-      return process.nextTick(cb, null, null)
+      return process.nextTick(cb, null)
     }
   }
 

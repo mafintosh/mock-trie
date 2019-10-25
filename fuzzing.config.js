@@ -1,7 +1,7 @@
 module.exports = {
   seed: 'mock-trie',
-  numIterations: 2000,
-  numOperations: 30,
+  numIterations: 10000,
+  numOperations: 100,
   shortening: {
     iterations: 1e6
   },
