@@ -14,7 +14,7 @@ async function getObjects () {
 }
 
 function runTests () {
-  test('Maximum call stack size exceeded', async t => {
+  test('should not exceed maximum stack size', async t => {
     const { tests } = await getObjects()
 
     try {
@@ -22,7 +22,7 @@ function runTests () {
       t.pass('fuzz test passed')
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
-      t.fail(err, 'Maximum call stack size exceeded')
+      t.fail(err, 'maximum call stack size exceeded')
     }
     t.end()
   })

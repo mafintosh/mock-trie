@@ -190,7 +190,6 @@ module.exports = class ReferenceTrie {
     }
   }
 
-  // This is a non-symlink aware iterator.
   _iterator (startingNode, prefix, opts = {}) {
     if (!prefix) prefix = ''
     const recursive = !!opts.recursive
@@ -204,32 +203,30 @@ module.exports = class ReferenceTrie {
     return nanoiterator({ next })
 
     function next (cb) {
-      //console.log('queue here:', queue)
       if (!queue.length) return process.nextTick(cb, null)
-      const { path, node } = queue.shift()
-      //console.log('path:', path, 'node:', node)
+      while (queue.length) {
+        const { path, node } = queue.shift()
+        if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
+          for (const [component, child] of node.children) {
+            const p = path === '' ? component : path + '/' + component
+            const n = self._get(p.split('/'), self.root)
 
-      if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
-        for (const [component, child] of node.children) {
-          const p = path === '' ? component : path + '/' + component
-          const n = self._get(p.split('/'), self.root)
-
-          if (n && n.node) {
-            queue.push({
-              path: p,
-              node: n.node
-            })
+            if (n && n.node) {
+              queue.push({
+                path: p,
+                node: n.node
+              })
+            }
           }
         }
+        if (!node.value && !node.symlink) continue
+
+        const validPath = !!path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
+        //console.log('validPath:', validPath, 'path:', path, 'prefix:', prefix)
+        if (gt && path === prefix) continue
+        if (validPath) return process.nextTick(cb, null, { key: path, node })
       }
-      if (!node.value && !node.symlink) return next(cb)
-
-      const validPath = !!path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
-      //console.log('validPath:', validPath, 'path:', path, 'prefix:', prefix)
-      if (gt && path === prefix) return next(cb)
-      if (validPath) return process.nextTick(cb, null, { key: path, node })
-
-      return next(cb)
+      return process.nextTick(cb, null)
     }
   }
 
