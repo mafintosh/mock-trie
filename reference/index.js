@@ -198,23 +198,25 @@ module.exports = class ReferenceTrie {
 
     const queue = []
     //console.log('starting node:', startingNode, 'prefix:', prefix)
-    queue.push({ path: prefix, node: startingNode })
+    queue.push({ path: prefix, node: startingNode, pathSet: new Set([startingNode]) })
 
     return nanoiterator({ next })
 
     function next (cb) {
       if (!queue.length) return process.nextTick(cb, null)
       while (queue.length) {
-        const { path, node } = queue.shift()
+        const { path, node, pathSet } = queue.shift()
         if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path)) {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
             const n = self._get(p.split('/'), self.root)
 
-            if (n && n.node) {
+            if (n && n.node && !pathSet.has(n.node)) {
+              const childSet = new Set([...pathSet, n.node])
               queue.push({
                 path: p,
-                node: n.node
+                node: n.node,
+                pathSet: childSet
               })
             }
           }
@@ -226,7 +228,7 @@ module.exports = class ReferenceTrie {
         if (gt && path === prefix) continue
         if (validPath) return process.nextTick(cb, null, { key: path, node })
       }
-      return process.nextTick(cb, null)
+      return process.nextTick(cb, null, null)
     }
   }
 
