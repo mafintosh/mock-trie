@@ -116,7 +116,7 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
 
     if (next.symlink) {
-      if (opts.visited) {
+      if (opts.visited && (path.length > opts.prefixDepth)) {
         if (opts.visited.has(next)) return finalize(null)
         opts.visited.add(next)
       }
@@ -200,6 +200,8 @@ module.exports = class ReferenceTrie {
     const gt = !!opts.gt
     const self = this
 
+    const prefixDepth = prefix.split('/').length
+
     const queue = []
     //console.log('starting node:', startingNode, 'prefix:', prefix)
     queue.push({ path: prefix, node: startingNode })
@@ -214,7 +216,7 @@ module.exports = class ReferenceTrie {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
             const visited = new Set()
-            const n = self._get(p.split('/'), self.root, { visited })
+            const n = self._get(p.split('/'), self.root, { visited, prefixDepth })
             if (n && n.node) {
               queue.push({
                 path: p,
