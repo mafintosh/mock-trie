@@ -137,7 +137,9 @@ module.exports = class ReferenceTrie {
       })
 
       if (opts.visited) {
-        const id = next.id + '+' + (firstNode && firstNode.node ? firstNode.node.id : 0)
+        const targetId = firstNode && firstNode.node ? firstNode.node.id : 0
+        if (next.id === targetId) return finalize(null)
+        const id = next.id + '+' + targetId
         if (opts.visited.has(id)) {
           // console.log('cycle', next.symlink)
           return finalize(null)
