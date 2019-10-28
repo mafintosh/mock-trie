@@ -235,7 +235,7 @@ module.exports = class ReferenceTrie {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
             const visited = new Set()
-            const n = self._get(p.split('/').slice(cut), startingNode, { visited, root: self.root })
+            const n = self._get(p.split('/').slice(cut), startingNode, { key: opts.key, visited, root: self.root })
 
             if (n && n.node) {
               queue.push({
@@ -268,7 +268,10 @@ module.exports = class ReferenceTrie {
       next: cb => cb(null, null)
     }
 
-    return this._iterator(startingNode.node, prefix, opts)
+    let key = startingNode.key.replace(/\/$/, '') || ''
+    if (key === prefix) key = ''
+
+    return this._iterator(startingNode.node, prefix, { key, ...opts })
   }
 
   put (path, value, opts = {})  {
