@@ -236,8 +236,8 @@ module.exports = class ReferenceTrie {
             const p = path === '' ? component : path + '/' + component
             const parts = p.split('/').slice(cut)
             const visited = new Set()
-            const target = opts.target + (parts.length ? '/' + parts.join('/') : '')
-            const n = self._get(parts, startingNode, { key: prefix, target, visited, root: self.root })
+            const target = (opts.target + (parts.length ? '/' + parts.join('/') : '')).replace(/^\//, '')
+            const n = self._get(parts, startingNode, { key: opts.target, target, visited, root: self.root })
 
             if (n && n.node) {
               queue.push({
