@@ -140,8 +140,8 @@ module.exports = class ReferenceTrie {
         const targetId = firstNode && firstNode.node ? firstNode.node.id : 0
         if (next.id === targetId) return finalize(null)
         const id = next.id + '+' + targetId
+
         if (opts.visited.has(id)) {
-          // console.log('cycle', next.symlink)
           return finalize(null)
         }
         opts.visited.add(id)
@@ -222,7 +222,7 @@ module.exports = class ReferenceTrie {
     // const prefixDepth = prefix ? prefix.split('/').length : 0
 
     const queue = []
-    //console.log('starting node:', startingNode, 'prefix:', prefix)
+
     queue.push({ path: prefix, node: startingNode })
 
     return nanoiterator({ next })
@@ -230,12 +230,14 @@ module.exports = class ReferenceTrie {
     function next (cb) {
       if (!queue.length) return process.nextTick(cb, null)
       while (queue.length) {
-        const { path, node } = queue.shift()
+        const { key, path, node } = queue.shift()
         if ((path.startsWith(prefix + '/') && recursive) || prefix.startsWith(path) || (!prefix)) {
           for (const [component, child] of node.children) {
             const p = path === '' ? component : path + '/' + component
+            const parts = p.split('/').slice(cut)
             const visited = new Set()
-            const n = self._get(p.split('/').slice(cut), startingNode, { key: opts.key, visited, root: self.root })
+            const target = opts.target + (parts.length ? '/' + parts.join('/') : '')
+            const n = self._get(parts, startingNode, { key: prefix, target, visited, root: self.root })
 
             if (n && n.node) {
               queue.push({
@@ -245,10 +247,10 @@ module.exports = class ReferenceTrie {
             }
           }
         }
+
         if (!node.value && !node.symlink) continue
 
         const validPath = !!path && (path.startsWith(prefix ? prefix + '/' : prefix) || path === prefix)
-        //console.log('validPath:', validPath, 'path:', path, 'prefix:', prefix)
         if (gt && path === prefix) continue
         if (validPath) return process.nextTick(cb, null, { key: path, node })
       }
@@ -268,10 +270,8 @@ module.exports = class ReferenceTrie {
       next: cb => cb(null, null)
     }
 
-    let key = startingNode.key.replace(/\/$/, '') || ''
-    if (key === prefix) key = ''
-
-    return this._iterator(startingNode.node, prefix, { key, ...opts })
+    const target = startingNode.key && startingNode.key.replace(/\/$/, '') || ''
+    return this._iterator(startingNode.node, prefix, { target, ...opts })
   }
 
   put (path, value, opts = {})  {
