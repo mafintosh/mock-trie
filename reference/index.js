@@ -144,15 +144,7 @@ module.exports = class ReferenceTrie {
       // })
 
       if (opts.visited) {
-        // console.log('resolved', resolved, this.realpath(resolved))
-        // resolved = this.realpath(resolved)
-        // console.log('realpath', resolved, '-->', this.realpath(resolved))
-        // const targetId = firstNode && firstNode.node ? firstNode.node.id : 0
-        // if (next.id === targetId) return finalize(null)
         const id = next.id //[next.id, targetId].sort((a, b) => a - b).join('+')
-      // console.log(id)
-        // if (opts.debug) console.log(id)
-// console.log('id', id)
         if (opts.visited.has(id)) {
           return finalize(null)
         }

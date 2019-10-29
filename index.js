@@ -26,8 +26,8 @@ module.exports = class Trie {
 
     const c = new IteratorController({
       prefix,
-      get (key) {
-        return self.get(key, { closest: true })
+      get (key, opts) {
+        return self.get(key, { closest: true, visited: opts && opts.visited })
       },
       realpath (key) {
         const resolve = self._getPutInfo(key, {}, false)
@@ -57,6 +57,7 @@ module.exports = class Trie {
 
     const c = new GetController({
       closest: !!(opts && opts.closest),
+      visited: opts && opts.visited,
       onclosest (node) {
         if (!node) return null
 
@@ -80,6 +81,13 @@ module.exports = class Trie {
         }
 
         if (val.symlink) {
+          const visited = c.handlers.visited
+
+          if (visited) {
+            if (visited.includes(node.seq)) return null
+            visited.push(node.seq)
+          }
+
           const target = c.result.key.toString()
           const linkname = c.headKey() // head === node
 
