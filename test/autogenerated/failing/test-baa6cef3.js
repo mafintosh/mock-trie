@@ -6,13 +6,16 @@ async function getObjects () {
   const testingModule = require('../../../fuzzing.js')
   const { actual, reference, state, executor: op, validators } = await testSetup(testingModule)
 
-  await op.symlink("cb/cdd/..","c")
-  await op.symlink("/cb","b/d/c/bdd")
-  await op.rename("b","cbc/bcb/b/b")
-  await op.symlink("/d","c/bbb/bc/cbb")
-  await op.rename("cbc","d/b/bcb/bd")
+  await op.symlink("/cb","d/b/bcb/bd/bcb/b/b/d/c/bdd")
+  await op.symlink("/d","cb/bbb/bc/cbb")
   await op.put("cb/bbd/cb","zghxbogzln")
 
+
+// console.log(actual.get('d/b/bcb/bd/bcb/b/b/d/c/bdd/bbb/bc/cbb/b/bcb/bd/bcb/b/b/d/c/bdd/bbd/cb'))
+
+// const ite = reference.iterator('d', {gt: false, recursive: true})
+// for (let i = 0; i < 3; i++) ite.next(console.log)
+// return new Promise(() => {})
   return { actual, reference, state, tests: validators.tests }
 }
 
