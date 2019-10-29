@@ -83,15 +83,14 @@ module.exports = class Trie {
         if (val.symlink) {
           const visited = c.handlers.visited
 
-          if (visited) {
-            if (visited.includes(node.seq)) return null
-            visited.push(node.seq)
-          }
-
           const target = c.result.key.toString()
           const linkname = c.headKey() // head === node
 
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
+            if (visited) {
+              if (visited.includes(node.seq)) return null
+              visited.push(node.seq)
+            }
             const symlink = JSON.parse(node.value).symlink
             const resolved = resolveLink(target, linkname, symlink)
             c.reset()
