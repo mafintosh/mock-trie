@@ -6,23 +6,29 @@ async function getObjects () {
   const testingModule = require('../../../fuzzing.js')
   const { actual, reference, state, executor: op, validators } = await testSetup(testingModule)
 
-  await op.put("db/c/bbb","znovebwyyb")
-  await op.symlink("/db","db/c/d/b/b/bb/db")
-  await op.symlink("db/c/d/b","c")
+  await op.put("bb/d/cc","ntosxniunz")
+  await op.symlink("/bc/b","bb/d/b/d")
+  await op.symlink("/bb","bc/b")
+
+// bc/b/d/b/d/d/cc
+//
+// bc/b --> /bb
+//           bb/d/b/d --> /bc/b
+
 
   return { actual, reference, state, tests: validators.tests }
 }
 
 function runTests () {
-  test('iterator should not return unexpected key c/b/bb/db/b/bd/d', async t => {
+  test('iterator should not return unexpected key bc/b/d/b/d/b/c', async t => {
     const { tests } = await getObjects()
 
     try {
-      await tests.sameIterators("c",{"gt":false,"recursive":true})
+      await tests.sameIterators("bc",{"gt":false,"recursive":true})
       t.pass('fuzz test passed')
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
-      t.fail(err, 'iterator should not return unexpected key c/b/bb/db/b/bd/d')
+      t.fail(err, 'iterator should not return unexpected key bc/b/d/b/d/b/c')
     }
     t.end()
   })
@@ -32,7 +38,7 @@ module.exports = {
   runTests,
   getObjects,
   config: {
- "seed": "mock-trie15",
+ "seed": "mock-trie927",
  "numIterations": 10000,
  "numOperations": 100,
  "shortening": {
@@ -82,4 +88,4 @@ if (require.main && !process.env['FUZZ_DISABLE_TEST']) {
 }
 
 // Warning: Do not modify the signature below! It is used to deduplicate fuzz tests.
-// @FUZZ_SIGNATURE 6e5acd8c46a1821becbbc36941560cc58319a61d84a304150a33046d190b215c
+// @FUZZ_SIGNATURE 1eebf81aaed7c92aa331a2d52704e66e670e29941cb5cbb91879f3fefabbd949

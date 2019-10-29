@@ -101,15 +101,22 @@ module.exports = class ReferenceTrie {
     }
   }
 
+  realpath (path) {
+    if (typeof path === 'string') path = toPath(path)
+    const n = this._get(path, this.root)
+    return (n && n.target) || path.join('/')
+  }
+
   _get (path, node, opts = {}) {
     if (!Array.isArray(path)) throw new Error('Path must always be an array.')
     const component = path[0] ? path[0] : ''
     var key = opts.key ? opts.key + '/' + component : component
 
+    var target = opts.target || path.join('/')
+
     if (!path.length) return finalize(node)
     if (!node) return finalize(null)
 
-    var target = opts.target || path.join('/')
     var linkDepth = opts.linkDepth || 0
 
     var next = node.children.get(path[0])
@@ -126,21 +133,26 @@ module.exports = class ReferenceTrie {
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
-      const resolved = resolveLink(target, key, linkTarget)
-
-      const firstNode = this._get(toPath(resolved), this.root, {
-        ...opts,
-        linkDepth: linkDepth + 1,
-        target: resolved,
-        key: null,
-        resolveLinks: false
-      })
+      let resolved = resolveLink(target, key, linkTarget)
+// if (opts.debug) console.log('resolved', resolved, target, key, linkTarget)
+      // const firstNode = this._get(toPath(resolved), this.root, {
+      //   ...opts,
+      //   linkDepth: linkDepth + 1,
+      //   target: resolved,
+      //   key: null,
+      //   resolveLinks: false
+      // })
 
       if (opts.visited) {
-        const targetId = firstNode && firstNode.node ? firstNode.node.id : 0
-        if (next.id === targetId) return finalize(null)
-        const id = next.id + '+' + targetId
-
+        // console.log('resolved', resolved, this.realpath(resolved))
+        // resolved = this.realpath(resolved)
+        // console.log('realpath', resolved, '-->', this.realpath(resolved))
+        // const targetId = firstNode && firstNode.node ? firstNode.node.id : 0
+        // if (next.id === targetId) return finalize(null)
+        const id = next.id //[next.id, targetId].sort((a, b) => a - b).join('+')
+      // console.log(id)
+        // if (opts.debug) console.log(id)
+// console.log('id', id)
         if (opts.visited.has(id)) {
           return finalize(null)
         }
@@ -163,11 +175,12 @@ module.exports = class ReferenceTrie {
     })
 
     function finalize (node) {
-      if (key === null) return { node: null, key: null}
+      if (key === null) return { node: null, key: null, target: null}
       const finalKey = path.length ? key + '/' + path.slice(1).join('/') : key
       return {
         node: node || null,
-        key: finalKey
+        key: finalKey,
+        target
       }
     }
   }
@@ -237,8 +250,9 @@ module.exports = class ReferenceTrie {
             const parts = p.split('/').slice(cut)
             const visited = new Set()
             const target = (opts.target + (parts.length ? '/' + parts.join('/') : '')).replace(/^\//, '')
+// console.log('_get', p, target)
             const n = self._get(parts, startingNode, { key: opts.target, target, visited, root: self.root })
-
+// console.log('res', !!n && !!n.node)
             if (n && n.node) {
               queue.push({
                 path: p,
@@ -265,12 +279,12 @@ module.exports = class ReferenceTrie {
     }
     if (!prefix) prefix = ''
 
-    const startingNode = prefix ? this._get(prefix.split('/'), this.root) : { node: this.root }
+    const startingNode = prefix ? this._get(prefix.split('/'), this.root) : { node: this.root, target: '' }
     if (!startingNode || !startingNode.node) return {
       next: cb => cb(null, null)
     }
 
-    const target = startingNode.key && startingNode.key.replace(/\/$/, '') || ''
+    const target = startingNode.target //startingNode.key && startingNode.key.replace(/\/$/, '') || ''
     return this._iterator(startingNode.node, prefix, { target, ...opts })
   }
 
