@@ -27,7 +27,7 @@ module.exports = class Trie {
     const c = new IteratorController({
       prefix,
       get (key, opts) {
-        return self.get(key, { closest: true, visited: opts && opts.visited })
+        return self.get(key, { closest: true, visited: opts && opts.visited, skip: opts && opts.skip })
       },
       realpath (key) {
         const resolve = self._getPutInfo(key, {}, false)
@@ -58,6 +58,7 @@ module.exports = class Trie {
     const c = new GetController({
       closest: !!(opts && opts.closest),
       visited: opts && opts.visited,
+      skip: opts && opts.skip,
       onclosest (node) {
         if (!node) return null
 
@@ -87,7 +88,7 @@ module.exports = class Trie {
           const linkname = c.headKey() // head === node
 
           if ((target.startsWith(linkname + '/') || target === linkname) && depth < MAX_SYMLINK_DEPTH) {
-            if (visited) {
+            if (visited && c.i >= ((c.handlers.skip || 0) * 32)) {
               if (visited.includes(node.seq)) return null
               visited.push(node.seq)
             }
@@ -96,6 +97,7 @@ module.exports = class Trie {
             c.reset()
             c.setFeed(self.feed)
             c.setTarget(resolved)
+            c.handlers.skip = resolveLink.directories
             depth++
             return null
           } else if (depth >= MAX_SYMLINK_DEPTH) {

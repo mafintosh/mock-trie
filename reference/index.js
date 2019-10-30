@@ -101,9 +101,9 @@ module.exports = class ReferenceTrie {
     }
   }
 
-  realpath (path) {
+  realpath (path, opts) {
     if (typeof path === 'string') path = toPath(path)
-    const n = this._get(path, this.root)
+    const n = this._get(path, this.root, opts)
     return (n && n.target) || path.join('/')
   }
 
@@ -125,6 +125,8 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
     if (opts.resolveLinks === false && next.symlink) return finalize(next)
 
+    if (opts.skip) opts.skip--
+
     if (next.symlink) {
       if (linkDepth >= MAX_SYMLINK_DEPTH) {
         key = null
@@ -134,17 +136,10 @@ module.exports = class ReferenceTrie {
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
       let resolved = resolveLink(target, key, linkTarget)
-// if (opts.debug) console.log('resolved', resolved, target, key, linkTarget)
-      // const firstNode = this._get(toPath(resolved), this.root, {
-      //   ...opts,
-      //   linkDepth: linkDepth + 1,
-      //   target: resolved,
-      //   key: null,
-      //   resolveLinks: false
-      // })
 
-      if (opts.visited) {
-        const id = next.id //[next.id, targetId].sort((a, b) => a - b).join('+')
+      if (opts.visited && !opts.skip) {
+        const id = next.id// + '.' + path.join('/') //[next.id, targetId].sort((a, b) => a - b).join('+')
+        // const idd = this.realpath(key)
         if (opts.visited.has(id)) {
           return finalize(null)
         }
@@ -155,7 +150,8 @@ module.exports = class ReferenceTrie {
         ...opts,
         linkDepth: linkDepth + 1,
         target: resolved,
-        key: null
+        key: null,
+        skip: resolveLink.directories
       })
     }
 
@@ -163,7 +159,8 @@ module.exports = class ReferenceTrie {
       ...opts,
       linkDepth,
       target,
-      key
+      key,
+      skip: 0
     })
 
     function finalize (node) {
