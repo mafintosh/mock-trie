@@ -24,7 +24,6 @@ function runTests () {
     } catch (err) {
       if (err.longDescription) console.error(err.longDescription)
       t.fail(err, 'iterator should not return unexpected key ccd/ccb/dbb')
-    console.log(err.stack)
     }
     t.end()
   })

@@ -256,7 +256,7 @@ module.exports = class Trie {
     if (!value && fromNode && fromNode.head && fromNode.headKey === fromNode.key.toString()) {
       const i = fromNode.hash.length - 1
       if (!isDeleteish(fromNode.head) || i < fromNode.head.trie.length) {
-        fromNode.trieBuilder.link(i, 4, fromNode.head.seq)
+        fromNode.trieBuilder.link(i, 4, fromNode.head.seq, fromNode.offset / 32)
       }
     }
 
