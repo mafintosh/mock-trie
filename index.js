@@ -120,12 +120,12 @@ module.exports = class Trie {
     c.setTarget(key)
 
     try {
-      const { node, i, offset } = c.update()
+      const { node, i, offset, target } = c.update()
       if (node) {
         node.value = JSON.parse(node.value)
       }
       if (c.handlers.closest) {
-        return { i, node, offset, depth }
+        return { i, node, offset, depth, target }
       }
       return node
     } catch (err) {
