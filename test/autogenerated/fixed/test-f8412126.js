@@ -8,14 +8,13 @@ async function getObjects () {
 
   await op.put("b","pbutvoilmg")
   await op.symlink("/b/b/b","dbb/cc")
-  await op.symlink("b","c")
-  await op.symlink("/b","c/b")
+  await op.symlink("/b","b/b")
 
   return { actual, reference, state, tests: validators.tests }
 }
 
 function runTests () {
-  test('iterator should not return unexpected key dbb/cc/c/bcc/bb', async t => {
+  test('iterator should not return unexpected key dbb/cc', async t => {
     const { tests } = await getObjects()
 
     try {

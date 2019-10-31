@@ -103,7 +103,7 @@ module.exports = class ReferenceTrie {
 
   realpath (path, opts) {
     if (typeof path === 'string') path = toPath(path)
-    const n = this._get(path, this.root, opts)
+    const n = this._get(path, this.root, { ...opts, realpath: true })
     return (n && n.target) || path.join('/')
   }
 
@@ -125,8 +125,6 @@ module.exports = class ReferenceTrie {
     if (opts.lstat && next.symlink && path.length === 1) return finalize(next)
     if (opts.resolveLinks === false && next.symlink) return finalize(next)
 
-    if (opts.skip) opts.skip--
-
     if (next.symlink) {
       if (linkDepth >= MAX_SYMLINK_DEPTH) {
         key = null
@@ -135,11 +133,10 @@ module.exports = class ReferenceTrie {
 
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
-      let resolved = resolveLink(target, key, linkTarget)
+      let resolved = resolveLink(target, key, linkTarget, !opts.realpath && this.realpath.bind(this))
 
-      if (opts.visited && !opts.skip) {
-        const id = next.id// + '.' + path.join('/') //[next.id, targetId].sort((a, b) => a - b).join('+')
-        // const idd = this.realpath(key)
+      if (opts.visited) {
+        const id = next.id
         if (opts.visited.has(id)) {
           return finalize(null)
         }
@@ -150,8 +147,7 @@ module.exports = class ReferenceTrie {
         ...opts,
         linkDepth: linkDepth + 1,
         target: resolved,
-        key: null,
-        skip: resolveLink.directories
+        key: null
       })
     }
 
@@ -159,8 +155,7 @@ module.exports = class ReferenceTrie {
       ...opts,
       linkDepth,
       target,
-      key,
-      skip: 0
+      key
     })
 
     function finalize (node) {
@@ -239,9 +234,9 @@ module.exports = class ReferenceTrie {
             const parts = p.split('/').slice(cut)
             const visited = new Set()
             const target = (opts.target + (parts.length ? '/' + parts.join('/') : '')).replace(/^\//, '')
-// console.log('_get', p, target)
+
             const n = self._get(parts, startingNode, { key: opts.target, target, visited, root: self.root })
-// console.log('res', !!n && !!n.node)
+
             if (n && n.node) {
               queue.push({
                 path: p,
