@@ -12,7 +12,7 @@
     "fuzzbuzz": "^2.0.0",
     "minimist": "^1.2.0",
     "nanoiterator": "^1.2.0",
-    "reference-fuzzer": "^0.9.2",
+    "fuzz-lightyear": "^1.0.0",
     "sandbox-path": "^1.0.1",
     "tape": "^4.11.0"
   },
