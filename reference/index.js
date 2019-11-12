@@ -134,6 +134,7 @@ module.exports = class ReferenceTrie {
       var linkTarget = next.symlink.target
       if (next.symlink.absolute) linkTarget = '/' + linkTarget
       let resolved = resolveLink(target, key, linkTarget, !opts.realpath && this.realpath.bind(this))
+      if (resolved === null) return finalize(null)
 
       if (opts.visited) {
         const id = next.id
