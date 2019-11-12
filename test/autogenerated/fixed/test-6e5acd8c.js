@@ -13,7 +13,12 @@ async function getObjects () {
   return { actual, reference, state, tests: validators.tests }
 }
 
-function runTests () {
+async function runTest () {
+  const { tests } = await getObjects()
+  return tests.sameIterators("c",{"gt":false,"recursive":true})
+}
+
+function runTapeTest () {
   test('iterator should not return unexpected key c/b/bb/db/b/bd/d', async t => {
     const { tests } = await getObjects()
 
@@ -29,7 +34,8 @@ function runTests () {
 }
 
 module.exports = {
-  runTests,
+  runTest,
+  runTapeTest,
   getObjects,
   config: {
  "seed": "mock-trie15",
@@ -78,7 +84,7 @@ module.exports = {
 },
 }
 if (require.main && !process.env['FUZZ_DISABLE_TEST']) {
-  runTests()
+  runTapeTest()
 }
 
 // Warning: Do not modify the signature below! It is used to deduplicate fuzz tests.
