@@ -30,9 +30,9 @@ module.exports = class Trie {
         return self.get(key, { closest: true, visited: opts && opts.visited, skip: opts && opts.skip })
       },
       realpath (key) {
-        const resolve = self._getPutInfo(key, {}, false)
+        const resolve = self._getPutInfo((key + '/FAKE_UNUSED_KEY').replace(/^[\/]+/, ''), {}, false)
         if (!resolve || !resolve.node) return null
-        return { key: resolve.node.key.toString(), depth: resolve.depth }
+        return { key: resolve.node.key.toString().replace(/(\/)?FAKE_UNUSED_KEY$/, '').trim(), depth: resolve.depth }
       }
     })
     c.setFeed(this.feed)
@@ -175,6 +175,7 @@ module.exports = class Trie {
           err.maxDepth = true
           throw err
         }
+
         return node
       }
     })
